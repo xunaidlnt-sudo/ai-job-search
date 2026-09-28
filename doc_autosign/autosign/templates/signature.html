@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}My signature{% endblock %}
+{% block body %}
+<div class="card" style="max-width:640px">
+  <h1>My signature</h1>
+  {% if variants %}
+    <table>
+      {% for v in variants %}
+      <tr><td style="width:120px">{{ v }}</td><td><img class="sig" src="{{ url_for('signature_image', variant=v) }}" alt="{{ v }} signature"></td></tr>
+      {% endfor %}
+    </table>
+  {% else %}
+    <p>You have no signature on file yet. Approvals will fail until you upload one.</p>
+  {% endif %}
+</div>
+<div class="card" style="max-width:640px">
+  <h2>Upload a scanned signature</h2>
+  <p class="muted">Sign on plain white paper, scan or photograph it, and upload the JPG/PNG. The paper background
+    is removed and the image is cropped to the ink automatically.</p>
+  <form method="post" enctype="multipart/form-data">
+    <input type="hidden" name="csrf" value="{{ csrf }}">
+    <label for="variant">Which signature</label>
+    <select id="variant" name="variant">
+      <option value="full">Full signature</option>
+      <option value="initials">Initials (for page-by-page initialling)</option>
+    </select>
+    <label for="file">Image</label>
+    <input type="file" id="file" name="file" accept="image/png,image/jpeg" required>
+    <label><input type="checkbox" name="clean" value="0"> Already a transparent PNG - don't process it</label>
+    <div class="actions"><button>Save</button></div>
+  </form>
+</div>
+{% endblock %}

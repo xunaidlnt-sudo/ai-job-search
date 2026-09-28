@@ -75,3 +75,8 @@ upskill/*.md
 
 # Brainstorm mockups (superpowers visual companion) - never ship
 .superpowers/
+
+# doc_autosign: runtime data (documents, signatures, database) stays local;
+# the generated sample documents are shared so the demo works out of the box.
+doc_autosign/data/
+!doc_autosign/samples/*

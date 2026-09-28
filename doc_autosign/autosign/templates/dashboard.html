@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% macro rows(items, empty) %}
+  {% if items %}
+  <table>
+    <tr><th>Document</th><th>Type</th><th>Status</th><th>Waiting on</th><th>Updated</th></tr>
+    {% for r in items %}
+    {% set dt = cfg.document_types.get(r.doc_type) %}
+    <tr>
+      <td><a href="{{ url_for('request_detail', request_id=r.id) }}">{{ r.title }}</a></td>
+      <td>{{ dt.name if dt else r.doc_type }}</td>
+      <td><span class="pill {{ r.status }}">{{ r.status }}</span></td>
+      <td>{% if r.status == 'pending' and dt %}{{ dt.step(r.current_step).label }}{% endif %}</td>
+      <td class="muted">{{ r.updated_at.replace('T', ' ')[:16] }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">{{ empty }}</p>{% endif %}
+{% endmacro %}
+{% block body %}
+<div class="card">
+  <h2>Waiting for my approval ({{ pending|length }})</h2>
+  {{ rows(pending, "Nothing waiting for you.") }}
+</div>
+<div class="card">
+  <h2>Submitted by me</h2>
+  {{ rows(mine, "You have not submitted anything yet.") }}
+</div>
+{% if me.admin %}
+<div class="card">
+  <h2>All other requests</h2>
+  {{ rows(others, "None.") }}
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% block title %}{{ req.title }}{% endblock %}
+{% block body %}
+<h1>{{ req.title }} <span class="pill {{ req.status }}">{{ req.status }}</span></h1>
+<p class="muted">{{ dt.name }} &middot; submitted by {{ cfg.users[req.submitter].name if req.submitter in cfg.users else req.submitter }}
+  on {{ req.created_at.replace('T', ' ')[:16] }} UTC &middot; request {{ req.id }}</p>
+<div class="grid">
+  <div>
+    {% if is_pdf %}
+      <iframe src="{{ url_for('request_document', request_id=req.id, inline=1) }}" title="Document preview"></iframe>
+    {% else %}
+      <div class="card">Word documents cannot be previewed here. Download to review.</div>
+    {% endif %}
+  </div>
+  <div>
+    {% if can_act %}
+    <div class="card">
+      <h2>Your action: {{ dt.step(req.current_step).label }}</h2>
+      <form method="post" action="{{ url_for('request_act', request_id=req.id) }}">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <input type="hidden" name="step" value="{{ req.current_step }}">
+        <label for="comment">Comment (required to reject)</label>
+        <textarea id="comment" name="comment" rows="2"></textarea>
+        <div class="actions">
+          <button name="action" value="approve">Approve &amp; sign</button>
+          <button name="action" value="reject" class="danger">Reject</button>
+        </div>
+      </form>
+    </div>
+    {% endif %}
+    <div class="card">
+      <h2>Signatures</h2>
+      <table>
+        {% for row in steps %}
+        <tr>
+          <td>{{ row.step.label }}<div class="muted">{{ row.actor or row.who }}</div></td>
+          <td>{% if row.state %}<span class="pill {{ row.state }}">{{ row.state }}</span>{% endif %}
+            {% if row.event %}<div class="muted">{{ row.event.at.replace('T', ' ')[:16] }}</div>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      <div class="actions">
+        <a class="btn" href="{{ url_for('request_document', request_id=req.id) }}">Download {% if req.status == 'approved' %}signed{% else %}current{% endif %}</a>
+        <a class="btn secondary" href="{{ url_for('request_document', request_id=req.id, version=0) }}">Original</a>
+      </div>
+      {% if me.admin and req.status == 'pending' %}
+      <form method="post" action="{{ url_for('admin_cancel', request_id=req.id) }}" style="margin-top:10px"
+            onsubmit="return confirm('Cancel this request?')">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <button class="danger small">Cancel request (admin)</button>
+      </form>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2>History</h2>
+      {% for e in history %}
+        <p style="margin:0 0 8px"><strong>{{ e.action }}</strong>{% if e.step_id %} ({{ dt.step(e.step_id).label }}){% endif %}
+          by {{ cfg.users[e.actor].name if e.actor in cfg.users else e.actor }}
+          <br><span class="muted">{{ e.at.replace('T', ' ') }} &middot; v{{ e.version }} &middot; sha256 {{ e.sha256[:16] }}&hellip;</span>
+          {% if e.comment %}<br>&ldquo;{{ e.comment }}&rdquo;{% endif %}</p>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endblock %}

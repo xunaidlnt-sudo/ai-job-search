@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Approve: {{ req.title }}{% endblock %}
+{% block body %}
+<h1>{{ req.title }}</h1>
+<p class="muted">{{ dt.name }} &middot; for {{ user.name }} as <strong>{{ step.label }}</strong></p>
+<div class="grid">
+  <div>
+    {% if is_pdf %}
+      <iframe src="{{ url_for('email_document', token=token, inline=1) }}" title="Document preview"></iframe>
+    {% else %}
+      <div class="card"><a href="{{ url_for('email_document', token=token) }}">Download the Word document</a> to review it.</div>
+    {% endif %}
+  </div>
+  <div class="card">
+    {% if still_open %}
+      <form method="post">
+        <input type="hidden" name="csrf" value="{{ csrf }}">
+        <p>Approving places your signature at the <strong>{{ step.label }}</strong> position.</p>
+        <label for="comment">Comment (required to reject)</label>
+        <textarea id="comment" name="comment" rows="2"></textarea>
+        <div class="actions">
+          <button name="action" value="approve">Approve &amp; sign</button>
+          <button name="action" value="reject" class="danger">Reject</button>
+        </div>
+      </form>
+    {% else %}
+      <p>Nothing to do here: this request is <span class="pill {{ req.status }}">{{ req.status }}</span>
+        {% if req.status == 'pending' %}and waiting on {{ dt.step(req.current_step).label }}{% endif %}.</p>
+      <a class="btn secondary" href="{{ url_for('email_document', token=token) }}">Download current version</a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
