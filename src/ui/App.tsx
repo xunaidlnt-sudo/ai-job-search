@@ -88,6 +88,17 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // Desktop app: files double-clicked in Explorer/Finder arrive here.
+  const openers = useRef({ importXerBytes: async (_n: string, _b: Uint8Array) => {}, importIfcBytes: async (_n: string, _b: Uint8Array) => {} });
+  useEffect(() => {
+    const bridge = window.stratumDesktop;
+    if (!bridge) return;
+    return bridge.onOpenFile(({ name, bytes }) => {
+      if (/\.xer$/i.test(name)) openers.current.importXerBytes(name, bytes);
+      else if (/\.ifc$/i.test(name)) openers.current.importIfcBytes(name, bytes);
+    });
+  }, []);
+
   const onViewportClick = (e: React.MouseEvent) => {
     const v = viewerRef.current;
     if (!v) return;
@@ -107,9 +118,14 @@ export function App() {
   const importXer = async () => {
     const f = await pickFile(".xer");
     if (!f) return;
+    await importXerBytes(f.name, new Uint8Array(await f.arrayBuffer()));
+  };
+
+  const importXerBytes = async (name: string, bytes: Uint8Array) => {
+    const f = { name };
     try {
       store.setStatus(`Reading ${f.name}…`, true);
-      const tables = parseXerTables(decodeXer(new Uint8Array(await f.arrayBuffer())));
+      const tables = parseXerTables(decodeXer(bytes));
       const projects = listXerProjects(tables);
       let projectId = projects[0]?.id;
       if (projects.length > 1) {
@@ -155,10 +171,15 @@ export function App() {
   const importIfc = async () => {
     const f = await pickFile(".ifc");
     if (!f) return;
+    await importIfcBytes(f.name, new Uint8Array(await f.arrayBuffer()));
+  };
+
+  const importIfcBytes = async (name: string, bytes: Uint8Array) => {
+    const f = { name };
     try {
       store.setStatus(`Loading ${f.name}…`, true);
       const { loadIfc } = await import("../viewer/ifcLoader");
-      const loaded = await loadIfc(new Uint8Array(await f.arrayBuffer()), (m) => store.setStatus(m, true));
+      const loaded = await loadIfc(bytes, (m) => store.setStatus(m, true));
       viewerRef.current?.setObjects(loaded.objects);
       store.setModel(loaded.elements, f.name);
       // Keep links whose element still exists (same GlobalId).
@@ -171,6 +192,8 @@ export function App() {
       store.setStatus(`IFC load failed: ${(err as Error).message}`);
     }
   };
+
+  openers.current = { importXerBytes, importIfcBytes };
 
   const loadDemoModelOnly = () => {
     const boxes = demoModel();

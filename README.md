@@ -37,6 +37,23 @@ npm test           # unit tests for the XER parser, linking and simulation engin
 npm run build      # production build in dist/
 ```
 
+## Desktop app and installers
+
+Stratum also ships as a desktop app (Electron). It runs the same code as the web version, works offline, and registers `.xer` and `.ifc` files so double-clicking one opens it in Stratum.
+
+```bash
+npm run desktop      # build and run the desktop app locally
+npm run dist:win     # Windows installer  -> release/Stratum-4D-<version>-win-x64.exe
+npm run dist:mac     # macOS disk image   -> release/Stratum-4D-<version>-mac-<arch>.dmg
+npm run dist:linux   # Linux AppImage + .deb
+```
+
+Each installer has to be built on its own OS (or with Wine for Windows). The GitHub Actions workflow in `.github/workflows/desktop.yml` builds all three on native runners on every push, and attaches them to a draft GitHub Release when you push a `v*` tag.
+
+The Windows installer lets the user pick the install folder and adds Start-menu and desktop shortcuts. Installers are **unsigned** for now, so Windows SmartScreen shows "Windows protected your PC" (click *More info → Run anyway*) and macOS needs right-click → *Open* the first time. Code-signing certificates remove both warnings.
+
+The app icon in `build/` is a placeholder. Replace `build/icon.png` (1024×1024 PNG) with the final logo and rebuild.
+
 ## Linking tips
 
 - The quickest route is a shared key. If the model has a property holding the P6 Activity ID (for example `Pset_Stratum.ActivityID`, or an ArchiCAD/Revit shared parameter), one *equals* rule links the whole model.

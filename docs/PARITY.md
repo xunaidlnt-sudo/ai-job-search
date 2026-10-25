@@ -62,7 +62,7 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 | Item | Stratum |
 |---|---|
 | Web app | **Done** |
-| Desktop app (Windows/macOS/Linux) | **Planned (Phase 2)**: wrap the web build with Tauri or Electron |
+| Desktop app (Windows/macOS/Linux) | **Done**: Electron app; Windows NSIS installer, macOS DMG, Linux AppImage/deb; opens .xer/.ifc from Explorer/Finder. Unsigned until certificates are bought |
 | Project file | **Done**: `.stratum.json` (schedule, links, rules, profiles). Links re-match the model by IFC GlobalId |
 | IFC model import | **Done**: IFC2x3 / IFC4 via web-ifc; properties, quantities and storeys are read for linking |
 
