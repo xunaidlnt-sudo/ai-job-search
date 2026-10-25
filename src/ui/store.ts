@@ -2,6 +2,9 @@ import { create } from "zustand";
 import { DEFAULT_PROFILES } from "../core/profiles";
 import { DEFAULT_SIM_OPTIONS, scheduleRange, type SimulationOptions } from "../core/simulation";
 import type { AppearanceProfile, Link, LinkRule, ModelElement, Schedule } from "../core/types";
+import type { ScheduleDiff } from "../core/update";
+
+export type SideTab = "selection" | "rules" | "profiles" | "display" | "check";
 
 const DAY = 86_400_000;
 
@@ -22,7 +25,12 @@ export interface AppState {
   status: string;
   busy: boolean;
   collapsedWbs: Set<string>;
+  /** Result of the last schedule update import, shown in the Check tab. */
+  lastUpdate: (ScheduleDiff & { droppedLinks: number; keptLinks: number; at: number }) | null;
+  sideTab: SideTab;
 
+  setLastUpdate: (u: AppState["lastUpdate"]) => void;
+  setSideTab: (t: SideTab) => void;
   setSchedule: (s: Schedule | null) => void;
   setModel: (elements: ModelElement[], fileName: string | null) => void;
   setLinks: (links: Link[]) => void;
@@ -54,7 +62,11 @@ export const useStore = create<AppState>((set) => ({
   status: "Load a P6 XER schedule and an IFC model, or open the demo.",
   busy: false,
   collapsedWbs: new Set(),
+  lastUpdate: null,
+  sideTab: "selection",
 
+  setLastUpdate: (lastUpdate) => set({ lastUpdate }),
+  setSideTab: (sideTab) => set({ sideTab }),
   setSchedule: (schedule) =>
     set(() => {
       if (!schedule) return { schedule, selectedActivity: null };

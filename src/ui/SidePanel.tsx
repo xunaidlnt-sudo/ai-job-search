@@ -1,17 +1,17 @@
 import { useMemo, useState } from "react";
-import { activityFields, applyRules, elementPropertyValue, mergeLinks, propertyKeys, unlink } from "../core/linking";
+import { linkHealth } from "../core/health";
+import { activityFields, applyRules, elementPropertyValue, mergeLinks, propertyKeys, suggestRules, unlink, type RuleSuggestion } from "../core/linking";
 import { cloneProfile, STATUS_COLORS } from "../core/profiles";
 import type { AppearanceProfile, LinkMatch, LinkRule, PhaseAppearance } from "../core/types";
-import { useStore } from "./store";
-
-type Tab = "selection" | "rules" | "profiles" | "display";
+import { fmtDate, useStore, type SideTab } from "./store";
 
 export function SidePanel() {
-  const [tab, setTab] = useState<Tab>("selection");
+  const tab = useStore((s) => s.sideTab);
+  const setTab = useStore((s) => s.setSideTab);
   return (
     <div className="side">
       <div className="tabs">
-        {(["selection", "rules", "profiles", "display"] as Tab[]).map((t) => (
+        {(["selection", "rules", "profiles", "display", "check"] as SideTab[]).map((t) => (
           <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </button>
@@ -22,6 +22,7 @@ export function SidePanel() {
         {tab === "rules" && <RulesTab />}
         {tab === "profiles" && <ProfilesTab />}
         {tab === "display" && <DisplayTab />}
+        {tab === "check" && <CheckTab />}
       </div>
     </div>
   );
@@ -176,8 +177,47 @@ function RulesTab() {
     setStatus(`Rules created ${found.length} link(s) on ${linkedEls} element(s).`);
   };
 
+  const [suggestions, setSuggestions] = useState<RuleSuggestion[] | null>(null);
+  const fieldLabel = (v: string) => fields.find((f) => f.value === v)?.label ?? v;
+
   return (
     <div className="stack">
+      <section>
+        <h4>Auto-detect</h4>
+        <p className="muted">Scan the model for a property that already holds Activity IDs, names, WBS or activity codes.</p>
+        <button
+          disabled={!schedule || elements.length === 0}
+          onClick={() => {
+            const found = suggestRules(elements, schedule!);
+            setSuggestions(found);
+            setStatus(found.length ? `Found ${found.length} candidate rule(s).` : "No property in the model matches schedule values exactly.");
+          }}
+        >
+          Find matching properties
+        </button>
+        {suggestions && suggestions.length === 0 && <p className="muted">No exact matches. Try a "contains" rule, or link by selection.</p>}
+        {suggestions && suggestions.length > 0 && (
+          <ul className="list suggestions">
+            {suggestions.map((sg) => (
+              <li key={`${sg.elementProperty}|${sg.activityField}`}>
+                <code>{sg.elementProperty}</code> = <code>{fieldLabel(sg.activityField)}</code>
+                <br />
+                <span className="muted">
+                  {sg.elementMatches} elements → {sg.activityMatches} activities
+                </span>{" "}
+                <button
+                  className="link"
+                  onClick={() =>
+                    setDraft({ ...draft, elementProperty: sg.elementProperty, activityField: sg.activityField, match: "equals", caseSensitive: false })
+                  }
+                >
+                  use
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
       <section>
         <h4>New rule</h4>
         <p className="muted">Link elements whose property matches an activity field.</p>
@@ -387,6 +427,125 @@ function DisplayTab() {
           </ul>
         )}
       </section>
+    </div>
+  );
+}
+
+function CheckTab() {
+  const { schedule, elements, links, setLinks, selectElements, selectActivity, setSideTab, setStatus, lastUpdate } = useStore();
+  const health = useMemo(() => (schedule ? linkHealth(schedule, elements, links) : null), [schedule, elements, links]);
+  if (!schedule) return <p className="muted">Load a schedule to check links.</p>;
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const shift = (d: number | null) => (d === null ? "" : d === 0 ? "0d" : `${d > 0 ? "+" : ""}${d}d`);
+
+  return (
+    <div className="stack">
+      {lastUpdate && (
+        <section>
+          <h4>Last schedule update</h4>
+          <p>
+            Data date {fmtDate(lastUpdate.dataDateFrom)} → <b>{fmtDate(lastUpdate.dataDateTo)}</b>
+            <br />
+            Project finish{" "}
+            <b className={(lastUpdate.finishShiftDays ?? 0) > 0 ? "bad" : (lastUpdate.finishShiftDays ?? 0) < 0 ? "good" : ""}>
+              {lastUpdate.finishShiftDays ? shift(lastUpdate.finishShiftDays) : "unchanged"}
+            </b>
+            <br />
+            {lastUpdate.changed.length} changed · {lastUpdate.added.length} added · {lastUpdate.removed.length} removed
+            <br />
+            Links kept: {lastUpdate.keptLinks}
+            {lastUpdate.droppedLinks > 0 && <span className="bad"> · dropped: {lastUpdate.droppedLinks} (activities removed)</span>}
+          </p>
+          {lastUpdate.changed.length > 0 && (
+            <table className="props">
+              <tbody>
+                <tr>
+                  <td><b>Activity</b></td>
+                  <td><b>Finish / status</b></td>
+                </tr>
+                {lastUpdate.changed.slice(0, 30).map((c) => (
+                  <tr key={c.code}>
+                    <td title={c.name}>{c.code}</td>
+                    <td>
+                      <span className={(c.finishShiftDays ?? 0) > 0 ? "bad" : (c.finishShiftDays ?? 0) < 0 ? "good" : ""}>{shift(c.finishShiftDays)}</span>{" "}
+                      {c.statusFrom !== c.statusTo ? `${c.statusFrom} → ${c.statusTo}` : ""} {c.pctFrom !== c.pctTo ? `${c.pctFrom}→${c.pctTo}%` : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {lastUpdate.added.length > 0 && (
+            <p>
+              <b>New activities (need links):</b> {lastUpdate.added.map((a) => a.code).join(", ")}
+            </p>
+          )}
+        </section>
+      )}
+      {health && (
+        <>
+          <section>
+            <h4>Coverage</h4>
+            <p>
+              Work activities linked: <b>{pct(health.coverage.activities)}</b>
+              <br />
+              Model elements linked: <b>{elements.length ? pct(health.coverage.elements) : "no model"}</b>
+            </p>
+          </section>
+          <section>
+            <h4>Activities with nothing to show ({health.unlinkedActivities.length})</h4>
+            {health.unlinkedActivities.length === 0 ? (
+              <p className="good">Every work activity has linked elements.</p>
+            ) : (
+              <ul className="list">
+                {health.unlinkedActivities.slice(0, 50).map((a) => (
+                  <li key={a.id}>
+                    <button className="link" onClick={() => { selectActivity(a.id); setSideTab("selection"); }}>{a.code}</button> {a.name}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+          <section>
+            <h4>Elements never shown in the sequence ({health.unlinkedElements.length})</h4>
+            {health.unlinkedElements.length > 0 && (
+              <button onClick={() => { selectElements(new Set(health.unlinkedElements.map((e) => e.id))); setStatus(`Selected ${health.unlinkedElements.length} unlinked element(s).`); }}>
+                Select them in 3D
+              </button>
+            )}
+          </section>
+          {health.duplicateInstalls.length > 0 && (
+            <section>
+              <h4>Installed by more than one activity ({health.duplicateInstalls.length})</h4>
+              <p className="muted">Often a double count. Check whether one should be a different profile.</p>
+              <ul className="list">
+                {health.duplicateInstalls.slice(0, 30).map((d) => (
+                  <li key={d.element.id}>
+                    {d.element.name}: {d.activities.map((a) => a.code).join(", ")}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {(health.orphanActivityLinks.length > 0 || health.orphanElementLinks.length > 0) && (
+            <section>
+              <h4>Broken links</h4>
+              <p>
+                {health.orphanActivityLinks.length} to missing activities · {health.orphanElementLinks.length} to elements not in the loaded model
+              </p>
+              <button
+                onClick={() => {
+                  const bad = new Set([...health.orphanActivityLinks, ...health.orphanElementLinks]);
+                  setLinks(links.filter((l) => !bad.has(l)));
+                  setStatus(`Removed ${bad.size} broken link(s).`);
+                }}
+              >
+                Remove broken links
+              </button>
+            </section>
+          )}
+        </>
+      )}
     </div>
   );
 }

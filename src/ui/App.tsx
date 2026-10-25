@@ -5,7 +5,11 @@ import { DEFAULT_PROFILES } from "../core/profiles";
 import { parseProject, serializeProject } from "../core/project";
 import { computeStates, scheduleRange } from "../core/simulation";
 import type { LinkRule } from "../core/types";
+import type { StratumProject } from "../core/project";
+import { diffSchedules, remapLinks } from "../core/update";
 import { decodeXer, listXerProjects, parseXerTables, xerToSchedule } from "../core/xer";
+import { clearAutosave, loadAutosave, startAutosave } from "./autosave";
+import { Help } from "./Help";
 import { Viewer } from "../viewer/Viewer";
 import { download, downloadDataUrl, pickFile } from "./files";
 import { Gantt } from "./Gantt";
@@ -17,6 +21,19 @@ export function App() {
   const viewerHost = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const [recording, setRecording] = useState<MediaRecorder | null>(null);
+  const [restore, setRestore] = useState<StratumProject | null>(null);
+  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const [helpOpen, setHelpOpen] = useState(false);
+
+  // Offer to restore the last autosaved session, then keep autosaving.
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    loadAutosave().then((p) => {
+      if (p?.schedule) setRestore(p);
+      stop = startAutosave(setSavedAt);
+    });
+    return () => stop?.();
+  }, []);
   const store = useStore();
   const { schedule, elements, links, profiles, time, sim, selectedElements, status, busy } = store;
 
@@ -44,15 +61,28 @@ export function App() {
     viewerRef.current?.setSelection(selectedElements);
   }, [selectedElements]);
 
-  // Space toggles playback.
+  // Keyboard: Space play/pause, arrows step a day (Shift = a week), Home/End jump, ? help.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement).tagName;
-      if (e.code === "Space" && tag !== "INPUT" && tag !== "SELECT" && tag !== "TEXTAREA") {
+      if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+      const s = useStore.getState();
+      if (e.key === "?") return setHelpOpen((h) => !h);
+      if (e.key === "Escape") return setHelpOpen(false);
+      if (!s.schedule) return;
+      const r = scheduleRange(s.schedule, s.sim.dateSource);
+      if (!r) return;
+      const clamp = (t: number) => Math.min(r.finish, Math.max(r.start, t));
+      const DAYMS = 86_400_000;
+      if (e.code === "Space") {
         e.preventDefault();
-        const s = useStore.getState();
-        if (s.schedule) s.setPlaying(!s.playing);
-      }
+        s.setPlaying(!s.playing);
+      } else if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+        e.preventDefault();
+        const dir = e.key === "ArrowRight" ? 1 : -1;
+        s.setTime(clamp(s.time + dir * (e.shiftKey ? 7 : 1) * DAYMS));
+      } else if (e.key === "Home") s.setTime(r.start);
+      else if (e.key === "End") s.setTime(r.finish);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -92,9 +122,31 @@ export function App() {
         projectId = projects[idx].id;
       }
       const s = xerToSchedule(tables, { projectId });
-      store.setSchedule(s);
-      store.setLinks([]);
-      store.setStatus(`Imported ${s.projectCode}: ${s.activities.length} activities, ${s.relationships.length} relationships. Data date ${fmtDate(s.dataDate)}.`);
+      const prev = useStore.getState().schedule;
+      const prevLinks = useStore.getState().links;
+      // Treat it as an update of the open project when Activity IDs overlap.
+      const overlap = prev ? s.activities.filter((a) => prev.activities.some((p) => p.code === a.code)).length : 0;
+      const isUpdate = !!prev && overlap > 0 && window.confirm(
+        `Update the open schedule (${prev.projectCode}) with this file?\n\n${overlap} Activity IDs match. Links will be kept by Activity ID.\n\nCancel to load it as a new project instead.`,
+      );
+      if (isUpdate && prev) {
+        const diff = diffSchedules(prev, s);
+        const { links: kept, dropped } = remapLinks(prev, s, prevLinks);
+        store.setSchedule(s);
+        store.setLinks(kept);
+        store.setLastUpdate({ ...diff, keptLinks: kept.length, droppedLinks: dropped.length, at: Date.now() });
+        store.setSideTab("check");
+        const fin = diff.finishShiftDays;
+        store.setStatus(
+          `Updated ${s.projectCode}: ${diff.changed.length} changed, ${diff.added.length} added, ${diff.removed.length} removed. ` +
+            `Finish ${fin ? `${fin > 0 ? "+" : ""}${fin}d` : "unchanged"}. ${kept.length} links kept${dropped.length ? `, ${dropped.length} dropped` : ""}.`,
+        );
+      } else {
+        store.setSchedule(s);
+        store.setLinks([]);
+        store.setLastUpdate(null);
+        store.setStatus(`Imported ${s.projectCode}: ${s.activities.length} activities, ${s.relationships.length} relationships. Data date ${fmtDate(s.dataDate)}.`);
+      }
     } catch (err) {
       store.setStatus(`XER import failed: ${(err as Error).message}`);
     }
@@ -120,6 +172,12 @@ export function App() {
     }
   };
 
+  const loadDemoModelOnly = () => {
+    const boxes = demoModel();
+    viewerRef.current?.setDemo(boxes);
+    store.setModel(boxes.map((b) => b.element), "Demo model");
+  };
+
   const loadDemo = () => {
     const boxes = demoModel();
     viewerRef.current?.setDemo(boxes);
@@ -135,7 +193,16 @@ export function App() {
     });
     store.setRules([rule]);
     store.setLinks(found);
+    store.setLastUpdate(null);
     store.setStatus(`Demo loaded: ${els.length} elements linked to ${new Set(found.map((l) => l.activityId)).size} activities. Press Play.`);
+  };
+
+  const applyProject = (p: StratumProject) => {
+    store.setSchedule(p.schedule);
+    store.setProfiles(p.profiles);
+    store.setRules(p.rules);
+    store.setLinks(p.links);
+    store.setLastUpdate(null);
   };
 
   const saveProject = () => {
@@ -150,10 +217,7 @@ export function App() {
     if (!f) return;
     try {
       const p = parseProject(await f.text());
-      store.setSchedule(p.schedule);
-      store.setProfiles(p.profiles);
-      store.setRules(p.rules);
-      store.setLinks(p.links);
+      applyProject(p);
       const loadedIds = new Set(useStore.getState().elements.map((e) => e.id));
       const matched = p.links.filter((l) => loadedIds.has(l.elementId)).length;
       store.setStatus(
@@ -223,8 +287,30 @@ export function App() {
           {recording ? "■ Stop recording" : "● Record video"}
         </button>
         <span className="spacer" />
+        {savedAt && <span className="muted autosaved">Autosaved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
         <button onClick={loadDemo}>Load demo</button>
+        <button title="Getting started and shortcuts (?)" onClick={() => setHelpOpen(true)}>?</button>
       </header>
+      {restore && (
+        <div className="banner">
+          Restore your last session? <b>{restore.schedule?.projectCode}</b>, {restore.links.length} links
+          {restore.savedAt ? `, saved ${new Date(restore.savedAt).toLocaleString()}` : ""}.
+          {restore.modelFileName && restore.modelFileName !== "Demo model" ? ` Re-open ${restore.modelFileName} afterwards to see the links.` : ""}
+          <button
+            className="primary"
+            onClick={() => {
+              applyProject(restore);
+              if (restore.modelFileName === "Demo model") loadDemoModelOnly();
+              store.setStatus("Previous session restored.");
+              setRestore(null);
+            }}
+          >
+            Restore
+          </button>
+          <button onClick={() => { clearAutosave(); setRestore(null); }}>Discard</button>
+        </div>
+      )}
+      {helpOpen && <Help onClose={() => setHelpOpen(false)} onDemo={() => { setHelpOpen(false); loadDemo(); }} />}
       <main className="workspace">
         <section className="left">
           <Gantt />

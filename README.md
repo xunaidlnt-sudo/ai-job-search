@@ -14,6 +14,14 @@ Phase 1 (this release) covers the core 4D workflow:
 - **Output**: PNG snapshots and WebM video of the full sequence.
 - **Project file**: `.stratum.json` holds the schedule, links, rules and profiles. Re-opening it with the same IFC re-matches links by GlobalId.
 
+Added after reading user reviews of existing 4D tools (see [docs/PARITY.md](docs/PARITY.md#user-feedback)):
+
+- **Weekly schedule updates**: import the new XER over the open project. Links carry across by Activity ID even if P6 internal ids change, and the **Check** tab lists finish slip, status/progress changes, and added or removed activities.
+- **Link health check**: activities with nothing linked, elements never shown, elements installed by two activities, and broken links (with one-click clean-up).
+- **Auto-detect linking rules**: scans every model property against Activity ID, name, WBS and activity codes, then offers the best matches as one-click rules.
+- **Autosave and restore**: work is saved in the browser every few seconds; after a crash or closed tab Stratum offers to restore it.
+- **Getting-started guide and shortcuts**: press `?`. Space plays, arrows step a day (Shift for a week), Home/End jump.
+
 A built-in demo (two-storey RC frame with a 13-activity P6 schedule) shows the whole workflow without any files. Click **Load demo**.
 
 Planned work and how Stratum compares with SYNCHRO 4D Pro's public feature set are in [docs/PARITY.md](docs/PARITY.md). Development follows [docs/CLEAN_ROOM.md](docs/CLEAN_ROOM.md).

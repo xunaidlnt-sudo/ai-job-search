@@ -66,6 +66,22 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 | Project file | **Done**: `.stratum.json` (schedule, links, rules, profiles). Links re-match the model by IFC GlobalId |
 | IFC model import | **Done**: IFC2x3 / IFC4 via web-ifc; properties, quantities and storeys are read for linking |
 
+## User feedback
+
+Public reviews of SYNCHRO and write-ups on 4D practice point to recurring pain points. These shaped features beyond straight parity:
+
+| Feedback (paraphrased) | Source | Stratum response |
+|---|---|---|
+| Importing, syncing and updating data is difficult | [9], [10] | **Done**: XER re-import as an update; links kept by Activity ID; change report in the Check tab |
+| Links break when the project changes; manual linking is error-prone | [11] | **Done**: link health check; IFC re-import keeps links by GlobalId |
+| Linking is heavy manual work | [11] | **Done**: auto-detect rules from model properties |
+| Steep learning curve; features hard to find from menus | [9], [10] | **Done**: getting-started guide, keyboard shortcuts. More in-context help planned |
+| Crashes and startup failures | [12] | **Done**: autosave and restore. Running in the browser avoids installs and antivirus conflicts |
+| Struggles with large models | [10] | **Planned (Phase 2)**: instanced/merged rendering, level-of-detail |
+| Expensive for small firms | [9] | Pricing decision, outside the code |
+
+Reviews are a mix of verified, trial and incentivised users; treat them as signals, not measurements.
+
 ## Sources
 
 1. Bentley, SYNCHRO 4D product page: https://www.bentley.com/software/synchro/
@@ -76,3 +92,7 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 6. User review summaries on Capterra: https://www.capterra.mx/software/35289/synchro
 7. Bentley, SYNCHRO Perform (field progress, earned value KPIs), linked from the SYNCHRO product page
 8. Bentley Communities wiki, "Features – SYNCHRO 4D Pro": https://communities.bentley.com/products/construction/w/construction__wiki/52264/features---synchro-4d-pro
+9. Capterra reviews: https://www.capterra.com/p/35289/Synchro/reviews/ and Software Advice: https://www.softwareadvice.com/product/6302-Synchro/
+10. G2 reviews: https://www.g2.com/products/synchro-construction/reviews
+11. Elecosoft, "The future of model-based planning": https://eleco.com/news/future-model-based-planning/
+12. Bentley knowledge base articles on crashes and performance, e.g. https://bentleysystems.service-now.com/community?id=kb_article&sysparm_article=KB0017792

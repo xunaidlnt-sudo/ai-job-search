@@ -98,6 +98,59 @@ export function unlink(links: Link[], elementIds: Set<string>, activityId?: stri
   return links.filter((l) => !(elementIds.has(l.elementId) && (activityId === undefined || l.activityId === activityId)));
 }
 
+export interface RuleSuggestion {
+  elementProperty: string;
+  activityField: string;
+  /** Elements whose property value exactly matches an activity's field (case-insensitive). */
+  elementMatches: number;
+  /** Distinct activities hit. */
+  activityMatches: number;
+}
+
+/**
+ * Look for a property that already carries schedule keys. For each element
+ * property and activity field pair, count exact (case-insensitive) matches and
+ * return the best pairs. This turns the usual "which parameter holds the
+ * activity ID?" hunt into one click.
+ */
+export function suggestRules(elements: ModelElement[], schedule: Schedule, limit = 5): RuleSuggestion[] {
+  const linkable = schedule.activities.filter((a) => a.type !== "wbs-summary" && a.type !== "loe");
+  const fields = activityFields(schedule).map((f) => f.value);
+  const fieldIndex = new Map<string, Map<string, Set<string>>>();
+  for (const f of fields) {
+    const idx = new Map<string, Set<string>>();
+    for (const a of linkable) {
+      const v = activityFieldValue(a, f, schedule)?.trim().toLowerCase();
+      if (!v) continue;
+      const set = idx.get(v) ?? new Set<string>();
+      set.add(a.id);
+      idx.set(v, set);
+    }
+    if (idx.size) fieldIndex.set(f, idx);
+  }
+  const out: RuleSuggestion[] = [];
+  for (const key of propertyKeys(elements)) {
+    if (key === "GlobalId") continue;
+    for (const [field, idx] of fieldIndex) {
+      let elementMatches = 0;
+      const acts = new Set<string>();
+      for (const el of elements) {
+        const v = elementPropertyValue(el, key)?.trim().toLowerCase();
+        if (!v) continue;
+        const hit = idx.get(v);
+        if (hit) {
+          elementMatches++;
+          for (const id of hit) acts.add(id);
+        }
+      }
+      if (elementMatches > 0) out.push({ elementProperty: key, activityField: field, elementMatches, activityMatches: acts.size });
+    }
+  }
+  // Prefer pairs that spread across many activities; a single activity matching everything is rarely useful.
+  out.sort((a, b) => b.activityMatches - a.activityMatches || b.elementMatches - a.elementMatches);
+  return out.slice(0, limit);
+}
+
 /** All distinct property keys across elements, for rule-builder dropdowns. */
 export function propertyKeys(elements: ModelElement[]): string[] {
   const keys = new Set<string>(["Name", "IfcType", "GlobalId"]);

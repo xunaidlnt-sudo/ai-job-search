@@ -29,7 +29,8 @@ select, input:not([type]), input[type="text"] { border: 1px solid var(--line); b
 .muted { color: var(--muted); }
 .empty { padding: 24px; color: var(--muted); }
 
-.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%; }
+.app { display: flex; flex-direction: column; height: 100%; }
+.app > .workspace { flex: 1; }
 .toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
 .brand { font-weight: 700; font-size: 15px; margin-right: 10px; }
 .brand small { color: var(--accent); }
@@ -112,3 +113,20 @@ footer { background: var(--panel); border-top: 1px solid var(--line); }
   .left, .right { border: none; border-bottom: 1px solid var(--line); }
   .right { min-height: 300px; }
 }
+
+.bad { color: #c62828; }
+.good { color: #2e7d32; }
+.suggestions li { margin-bottom: 6px; }
+.tabs button { font-size: 12px; }
+
+.banner { display: flex; gap: 8px; align-items: center; padding: 6px 10px; background: #fff8e1; border-bottom: 1px solid #f0d98a; flex-wrap: wrap; }
+.autosaved { font-size: 11px; margin-right: 6px; }
+.help-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 32, 0.45); display: grid; place-items: center; z-index: 50; padding: 16px; }
+.help { background: #fff; border-radius: 10px; max-width: 640px; width: 100%; max-height: 90vh; overflow: auto; padding: 18px 22px; box-shadow: 0 10px 40px rgba(0,0,0,0.25); }
+.help h2 { margin: 0 0 8px; font-size: 18px; }
+.help h3 { margin: 16px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+.help ol { padding-left: 20px; margin: 0; }
+.help li { margin: 6px 0; }
+.help table { border-collapse: collapse; width: 100%; }
+.help td { padding: 3px 6px; border-bottom: 1px solid #f0f2f5; }
+.help kbd { background: #f0f2f5; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: 12px ui-monospace, monospace; }
