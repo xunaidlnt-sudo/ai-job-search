@@ -24,10 +24,18 @@ jobs:
         include:
           - os: windows-latest
             target: --win
+            name: Windows
+          # Intel and Apple Silicon DMGs are built in separate jobs: building both in
+          # one job mounts two images under the same volume name and hdiutil fails.
           - os: macos-latest
-            target: --mac
+            target: --mac --x64
+            name: macOS-x64
+          - os: macos-latest
+            target: --mac --arm64
+            name: macOS-arm64
           - os: ubuntu-latest
             target: --linux
+            name: Linux
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +57,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: stratum-4d-${{ runner.os }}
+          name: stratum-4d-${{ matrix.name }}
           path: |
             release/*.exe
             release/*.dmg
