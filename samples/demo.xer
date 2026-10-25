@@ -1,0 +1,61 @@
+ERMHDR	21.12	2026-04-20	Project	admin	admin	dbxDatabaseNoName	Project Management	USD
+%T	PROJECT
+%F	proj_id	proj_short_name	last_recalc_date
+%R	100	DEMO-RC	2026-04-20 08:00
+%T	PROJWBS
+%F	wbs_id	proj_id	parent_wbs_id	wbs_short_name	wbs_name	seq_num	proj_node_flag
+%R	10	100		DEMO-RC	Demo RC Building	0	Y
+%R	11	100	10	1	Substructure	1	N
+%R	12	100	10	2	Superstructure	2	N
+%R	13	100	10	3	Envelope	3	N
+%R	14	100	10	4	Temporary Works	4	N
+%T	ACTVTYPE
+%F	actv_code_type_id	actv_code_type
+%R	1	Zone
+%T	ACTVCODE
+%F	actv_code_id	actv_code_type_id	short_name	actv_code_name
+%R	20	1	Z0	Zone Z0
+%R	21	1	Z1	Zone Z1
+%R	22	1	Z2	Zone Z2
+%T	TASK
+%F	task_id	proj_id	wbs_id	clndr_id	task_code	task_name	task_type	status_code	phys_complete_pct	total_float_hr_cnt	target_drtn_hr_cnt	remain_drtn_hr_cnt	act_start_date	act_end_date	early_start_date	early_end_date	target_start_date	target_end_date	driving_path_flag
+%R	1000	100	11	1	MS-000	Notice to Proceed	TT_Mile	TK_Complete	100	0	0	0	2026-02-02 08:00	2026-02-02 08:00	2026-02-02 08:00	2026-02-02 08:00	2026-02-02 08:00	2026-02-02 08:00	Y
+%R	1010	100	11	1	SW-100	Excavation	TT_Task	TK_Complete	100	0	273	0	2026-02-02 08:00	2026-02-13 17:00	2026-02-02 08:00	2026-02-13 17:00	2026-02-02 08:00	2026-02-13 17:00	Y
+%R	1020	100	11	1	SW-110	Pile Caps & Footings	TT_Task	TK_Complete	100	0	441	0	2026-02-16 08:00	2026-03-06 17:00	2026-02-16 08:00	2026-03-06 17:00	2026-02-16 08:00	2026-03-02 17:00	Y
+%R	1030	100	11	1	SW-120	Ground Floor Slab	TT_Task	TK_Complete	100	0	273	0	2026-03-09 08:00	2026-03-20 17:00	2026-03-09 08:00	2026-03-20 17:00	2026-03-09 08:00	2026-03-20 17:00	Y
+%R	1040	100	14	1	TW-010	Scaffolding Erect & Strike	TT_Task	TK_Active	55	40	1617	728	2026-03-23 08:00		2026-03-23 08:00	2026-05-29 17:00	2026-03-23 08:00	2026-05-29 17:00	N
+%R	1050	100	12	1	ST-200	Level 1 Columns	TT_Task	TK_Complete	100	0	273	0	2026-03-23 08:00	2026-04-03 17:00	2026-03-23 08:00	2026-04-03 17:00	2026-03-23 08:00	2026-04-03 17:00	Y
+%R	1060	100	12	1	ST-210	Level 1 Slab	TT_Task	TK_Active	70	0	441	132	2026-04-06 08:00		2026-04-06 08:00	2026-04-24 17:00	2026-04-06 08:00	2026-04-17 17:00	Y
+%R	1070	100	12	1	ST-300	Level 2 Columns	TT_Task	TK_NotStart	0	0	273	273			2026-04-27 08:00	2026-05-08 17:00	2026-04-20 08:00	2026-05-01 17:00	Y
+%R	1080	100	12	1	ST-310	Roof Slab	TT_Task	TK_NotStart	0	0	441	441			2026-05-11 08:00	2026-05-29 17:00	2026-05-04 08:00	2026-05-22 17:00	Y
+%R	1090	100	14	1	TW-020	Level 1 Falsework Erect & Strike	TT_Task	TK_Active	60	16	609	244	2026-04-06 08:00		2026-04-06 08:00	2026-05-01 17:00	2026-04-06 08:00	2026-05-01 17:00	N
+%R	1100	100	13	1	EN-400	External Walls Ground Floor	TT_Task	TK_NotStart	0	24	441	441			2026-04-27 08:00	2026-05-15 17:00	2026-04-27 08:00	2026-05-15 17:00	N
+%R	1110	100	13	1	EN-410	External Walls Level 1	TT_Task	TK_NotStart	0	0	441	441			2026-06-01 08:00	2026-06-19 17:00	2026-06-01 08:00	2026-06-19 17:00	Y
+%R	1120	100	13	1	MS-999	Structure & Envelope Complete	TT_FinMile	TK_NotStart	0	0	0	0			2026-06-19 17:00	2026-06-19 17:00	2026-06-19 17:00	2026-06-19 17:00	Y
+%T	TASKACTV
+%F	task_id	actv_code_type_id	actv_code_id	proj_id
+%R	1010	1	20	100
+%R	1020	1	20	100
+%R	1030	1	20	100
+%R	1050	1	21	100
+%R	1060	1	21	100
+%R	1070	1	22	100
+%R	1080	1	22	100
+%R	1100	1	21	100
+%R	1110	1	22	100
+%T	TASKPRED
+%F	task_pred_id	task_id	pred_task_id	proj_id	pred_proj_id	pred_type	lag_hr_cnt
+%R	500	1010	1000	100	100	PR_FS	0
+%R	501	1020	1010	100	100	PR_FS	0
+%R	502	1030	1020	100	100	PR_FS	0
+%R	503	1050	1030	100	100	PR_FS	0
+%R	504	1040	1030	100	100	PR_FS	0
+%R	505	1060	1050	100	100	PR_FS	0
+%R	506	1070	1060	100	100	PR_FS	0
+%R	507	1090	1050	100	100	PR_FS	0
+%R	508	1100	1060	100	100	PR_FS	0
+%R	509	1080	1070	100	100	PR_FS	0
+%R	510	1110	1080	100	100	PR_FS	0
+%R	511	1120	1110	100	100	PR_FS	0
+%R	512	1120	1100	100	100	PR_FS	0
+%E
