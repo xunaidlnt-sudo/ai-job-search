@@ -32,9 +32,8 @@ select, input:not([type]), input[type="text"] { border: 1px solid var(--line); b
 .app { display: flex; flex-direction: column; height: 100%; }
 .app > .workspace { flex: 1; }
 .toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 10px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
-.brand { font-weight: 700; font-size: 15px; margin-right: 10px; }
-.brand small { color: var(--accent); }
-.logo { color: var(--accent); }
+.brand { margin-right: 10px; display: flex; align-items: center; }
+.brand img { height: 28px; width: auto; display: block; }
 .sep { width: 1px; height: 20px; background: var(--line); margin: 0 4px; }
 .spacer { flex: 1; }
 
@@ -130,3 +129,4 @@ footer { background: var(--panel); border-top: 1px solid var(--line); }
 .help table { border-collapse: collapse; width: 100%; }
 .help td { padding: 3px 6px; border-bottom: 1px solid #f0f2f5; }
 .help kbd { background: #f0f2f5; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: 12px ui-monospace, monospace; }
+.help-logo { height: 30px; width: auto; display: block; margin-bottom: 10px; }

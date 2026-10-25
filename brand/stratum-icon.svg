@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <title>Stratum 4D</title>
+  <rect x="64" y="64" width="896" height="896" rx="180" fill="#1F2123"/>
+  <!-- Milestone marker and "today" line -->
+  <rect x="248" y="274" width="62" height="62" transform="rotate(45 279 305)" fill="#F94723"/>
+  <rect x="273" y="374" width="16" height="331" fill="#F94723"/>
+  <rect x="330" y="683" width="516" height="20" fill="#F94723"/>
+  <!-- 4 -->
+  <path fill="#FEFDFA" fill-rule="evenodd" d="M505 382 H569 V651 H523 V577 H333 V529 Z M400 529 L523 424 V529 Z"/>
+  <!-- D -->
+  <path fill="#FEFDFA" fill-rule="evenodd" d="M594 382 H710 C790 382 830 430 830 516 C830 602 790 651 710 651 H594 Z M640 428 H705 C760 428 784 460 784 516 C784 572 760 605 705 605 H640 Z"/>
+</svg>

@@ -1,3 +1,5 @@
+<p align="center"><img src="brand/stratum-logo.png" alt="Stratum 4D" width="420"></p>
+
 # Stratum 4D
 
 Stratum links a Primavera P6 schedule to an IFC building model and plays back the construction sequence over time. It runs in the browser; a desktop build is planned.
@@ -52,7 +54,7 @@ Each installer has to be built on its own OS (or with Wine for Windows). The Git
 
 The Windows installer lets the user pick the install folder and adds Start-menu and desktop shortcuts. Installers are **unsigned** for now, so Windows SmartScreen shows "Windows protected your PC" (click *More info → Run anyway*) and macOS needs right-click → *Open* the first time. Code-signing certificates remove both warnings.
 
-The app icon in `build/` is a placeholder. Replace `build/icon.png` (1024×1024 PNG) with the final logo and rebuild.
+Brand files live in `brand/`: the wordmark for light and dark backgrounds, and the app icon as SVG and 1024 px PNG. `build/icon.png` (installer and window icon) and `public/favicon.svg` are copies of the icon.
 
 ## Linking tips
 

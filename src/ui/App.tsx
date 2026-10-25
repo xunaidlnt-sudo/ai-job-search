@@ -296,7 +296,7 @@ export function App() {
     <div className="app">
       <header className="toolbar">
         <div className="brand">
-          <span className="logo">▤</span> Stratum <small>4D</small>
+          <img src="./stratum-logo.png" alt="Stratum 4D" />
         </div>
         <button onClick={importXer}>Import P6 XER</button>
         <button onClick={importIfc}>Import IFC</button>
