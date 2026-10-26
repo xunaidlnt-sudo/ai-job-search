@@ -3,7 +3,7 @@
 // so the demo exercises the same import path as a user's file.
 
 import { standardCalendar, toP6CalendarData, workHoursBetween } from "./calendar";
-import type { ModelElement, MotionPath } from "./types";
+import type { Calendar, ModelElement, MotionPath } from "./types";
 
 export interface DemoBox {
   element: ModelElement;
@@ -15,7 +15,7 @@ export interface DemoBox {
 
 const ACTIVITY_PSET = "Pset_Stratum.ActivityID";
 
-interface DemoTask {
+export interface DemoTask {
   id: string;
   code: string;
   name: string;
@@ -96,42 +96,92 @@ const RELS: [string, string, string, number][] = [
 ];
 
 const CAL = standardCalendar("1", "Standard 5-day");
-const ms = (d: string) => Date.parse(d.replace(" ", "T") + ":00Z");
-/** Working hours on the demo calendar. */
-function hours(a: string, b: string): number {
-  return Math.round(workHoursBetween(CAL, ms(a), ms(b)));
-}
+export const ms = (d: string) => Date.parse(d.replace(" ", "T") + ":00Z");
 
 export function demoXer(): string {
+  return buildDemoXer({
+    projId: "100",
+    projCode: "DEMO-RC",
+    projName: "Demo RC Building",
+    dataDate: "2026-04-20 08:00",
+    calendar: CAL,
+    wbs: [
+      ["10", "", "DEMO-RC", "Demo RC Building"],
+      ["11", "10", "1", "Substructure"],
+      ["12", "10", "2", "Superstructure"],
+      ["13", "10", "3", "Envelope"],
+      ["14", "10", "4", "Temporary Works"],
+    ],
+    tasks: TASKS.map((k) => ({ ...k, codes: k.zone ? { Zone: k.zone } : undefined })),
+    codeNames: { Zone: { Z0: "Zone Z0", Z1: "Zone Z1", Z2: "Zone Z2" } },
+    resources: RESOURCES,
+    loading: LOADING,
+    overrun: OVERRUN,
+    rels: RELS,
+    udfLabel: "Subcontractor",
+    udf: { "1010": "GroundWorks Ltd", "1100": "Masonry Co", "1110": "Masonry Co" },
+    units: [["h", "Hour"], ["m3", "Cubic metre"]],
+  });
+}
+
+/** Everything a demo needs to emit as a P6 XER file. */
+export interface DemoXerSpec {
+  projId: string;
+  projCode: string;
+  projName: string;
+  dataDate: string;
+  calendar: Calendar;
+  /** [wbs id, parent id ("" for the project node), short name, name] */
+  wbs: [string, string, string, string][];
+  tasks: (DemoTask & { codes?: Record<string, string> })[];
+  /** Activity code types and the description of each value. */
+  codeNames: Record<string, Record<string, string>>;
+  /** [id, code, name, type, unit, rate] */
+  resources: [string, string, string, string, string, number][];
+  loading: Record<string, [string, number, boolean?][]>;
+  overrun?: Record<string, number>;
+  rels: [string, string, string, number][];
+  udfLabel?: string;
+  udf?: Record<string, string>;
+  units: [string, string][];
+  currency?: string;
+  /** Remaining duration of in-progress work = data date to planned finish (instead of from % complete). */
+  remainingFromDataDate?: boolean;
+}
+
+export function buildDemoXer(x: DemoXerSpec): string {
   const L: string[] = [];
+  const cal = x.calendar;
+  const hrs = (a: string, b: string) => Math.round(workHoursBetween(cal, ms(a), ms(b)));
   const t = (name: string, fields: string[], rows: string[][]) => {
     L.push(`%T\t${name}`, `%F\t${fields.join("\t")}`);
     for (const r of rows) L.push(`%R\t${r.join("\t")}`);
   };
-  L.push("ERMHDR\t21.12\t2026-04-20\tProject\tadmin\tadmin\tdbxDatabaseNoName\tProject Management\tUSD");
+  L.push(`ERMHDR\t21.12\t${x.dataDate.slice(0, 10)}\tProject\tadmin\tadmin\tdbxDatabaseNoName\tProject Management\t${x.currency ?? "USD"}`);
   t(
     "CALENDAR",
     ["clndr_id", "default_flag", "clndr_name", "proj_id", "clndr_type", "day_hr_cnt", "clndr_data"],
-    [["1", "Y", CAL.name, "", "CA_Base", "8", toP6CalendarData(CAL)]],
+    [[cal.id, "Y", cal.name, "", "CA_Base", String(cal.hoursPerDay), toP6CalendarData(cal)]],
   );
-  t("PROJECT", ["proj_id", "proj_short_name", "clndr_id", "last_recalc_date"], [["100", "DEMO-RC", "1", "2026-04-20 08:00"]]);
+  t("PROJECT", ["proj_id", "proj_short_name", "clndr_id", "last_recalc_date"], [[x.projId, x.projCode, cal.id, x.dataDate]]);
   t(
     "PROJWBS",
     ["wbs_id", "proj_id", "parent_wbs_id", "wbs_short_name", "wbs_name", "seq_num", "proj_node_flag"],
-    [
-      ["10", "100", "", "DEMO-RC", "Demo RC Building", "0", "Y"],
-      ["11", "100", "10", "1", "Substructure", "1", "N"],
-      ["12", "100", "10", "2", "Superstructure", "2", "N"],
-      ["13", "100", "10", "3", "Envelope", "3", "N"],
-      ["14", "100", "10", "4", "Temporary Works", "4", "N"],
-    ],
+    x.wbs.map(([id, parent, short, name], i) => [id, x.projId, parent, short, name, String(i), parent ? "N" : "Y"]),
   );
-  t("ACTVTYPE", ["actv_code_type_id", "actv_code_type"], [["1", "Zone"]]);
-  t(
-    "ACTVCODE",
-    ["actv_code_id", "actv_code_type_id", "short_name", "actv_code_name"],
-    ["Z0", "Z1", "Z2"].map((z, i) => [`${20 + i}`, "1", z, `Zone ${z}`]),
-  );
+  const types = Object.keys(x.codeNames);
+  const codeId = new Map<string, string>();
+  let cid = 20;
+  const codeRows: string[][] = [];
+  types.forEach((ty, ti) => {
+    for (const [v, desc] of Object.entries(x.codeNames[ty])) {
+      const id = String(cid++);
+      codeId.set(`${ty}\u0000${v}`, id);
+      codeRows.push([id, String(ti + 1), v, desc]);
+    }
+  });
+  t("ACTVTYPE", ["actv_code_type_id", "actv_code_type"], types.map((ty, i) => [String(i + 1), ty]));
+  t("ACTVCODE", ["actv_code_id", "actv_code_type_id", "short_name", "actv_code_name"], codeRows);
   t(
     "TASK",
     [
@@ -139,55 +189,62 @@ export function demoXer(): string {
       "total_float_hr_cnt", "target_drtn_hr_cnt", "remain_drtn_hr_cnt", "act_start_date", "act_end_date",
       "early_start_date", "early_end_date", "target_start_date", "target_end_date", "driving_path_flag",
     ],
-    TASKS.map((k) => {
+    x.tasks.map((k) => {
       const actStart = k.status !== "TK_NotStart" ? k.start : "";
       const actEnd = k.status === "TK_Complete" ? k.finish : "";
-      const dur = hours(k.start, k.finish);
+      const dur = hrs(k.start, k.finish);
       return [
-        k.id, "100", k.wbs, "1", k.code, k.name, k.type ?? "TT_Task", k.status, String(k.pct), String(k.float),
-        String(dur), String(k.status === "TK_Complete" ? 0 : Math.round(dur * (1 - k.pct / 100))), actStart, actEnd,
+        k.id, x.projId, k.wbs, cal.id, k.code, k.name, k.type ?? "TT_Task", k.status, String(k.pct), String(k.float),
+        String(dur),
+        String(
+          k.status === "TK_Complete"
+            ? 0
+            : k.status === "TK_Active" && x.remainingFromDataDate
+              ? Math.max(0, hrs(x.dataDate, k.finish))
+              : Math.round(dur * (1 - k.pct / 100)),
+        ),
+        actStart,
+        actEnd,
         k.start, k.finish, k.bStart ?? k.start, k.bFinish ?? k.finish, k.float === 0 ? "Y" : "N",
       ];
     }),
   );
-  t(
-    "TASKACTV",
-    ["task_id", "actv_code_type_id", "actv_code_id", "proj_id"],
-    TASKS.filter((k) => k.zone).map((k) => [k.id, "1", `${20 + ["Z0", "Z1", "Z2"].indexOf(k.zone!)}`, "100"]),
-  );
-  t("RSRC", ["rsrc_id", "rsrc_short_name", "rsrc_name", "rsrc_type", "unit_id"], RESOURCES.map(([id, code, name, type, unit]) => [id, code, name, type, unit]));
-  t("UMEASURE", ["unit_id", "unit_abbrev", "unit_name"], [["h", "h", "Hour"], ["m3", "m3", "Cubic metre"]]);
-  t("RSRCRATE", ["rsrc_rate_id", "rsrc_id", "cost_per_qty"], RESOURCES.map(([id, , , , , rate]) => [`r${id}`, id, String(rate)]));
-  const rate = new Map(RESOURCES.map((r) => [r[0], r[5]]));
+  const taskActv: string[][] = [];
+  for (const k of x.tasks) {
+    for (const [ty, v] of Object.entries(k.codes ?? {})) {
+      const id = codeId.get(`${ty}\u0000${v}`);
+      if (id) taskActv.push([k.id, String(types.indexOf(ty) + 1), id, x.projId]);
+    }
+  }
+  t("TASKACTV", ["task_id", "actv_code_type_id", "actv_code_id", "proj_id"], taskActv);
+  t("RSRC", ["rsrc_id", "rsrc_short_name", "rsrc_name", "rsrc_type", "unit_id"], x.resources.map(([id, code, name, type, unit]) => [id, code, name, type, unit]));
+  t("UMEASURE", ["unit_id", "unit_abbrev", "unit_name"], x.units.map(([id, name]) => [id, id, name]));
+  t("RSRCRATE", ["rsrc_rate_id", "rsrc_id", "cost_per_qty"], x.resources.map(([id, , , , , rate]) => [`r${id}`, id, String(rate)]));
+  const rate = new Map(x.resources.map((r) => [r[0], r[5]]));
   const rows: string[][] = [];
   let n = 800;
-  for (const k of TASKS) {
-    const dur = hours(k.start, k.finish);
-    for (const [rid, perHour, fixed] of LOADING[k.code] ?? []) {
+  for (const k of x.tasks) {
+    const dur = hrs(k.start, k.finish);
+    const over = x.overrun?.[k.code] ?? 1;
+    for (const [rid, perHour, fixed] of x.loading[k.code] ?? []) {
       const budget = fixed ? perHour : perHour * dur;
       const done = k.status === "TK_Complete" ? 1 : k.pct / 100;
-      const actual = budget * done * (OVERRUN[k.code] ?? 1);
-      const remaining = k.status === "TK_Complete" ? 0 : budget * (1 - done) * (OVERRUN[k.code] ?? 1);
+      const actual = budget * done * over;
+      const remaining = k.status === "TK_Complete" ? 0 : budget * (1 - done) * over;
       const r = rate.get(rid)!;
-      const f = (x: number) => String(Math.round(x * 100) / 100);
-      rows.push([String(n++), k.id, rid, "100", f(budget), f(actual), f(remaining), f(budget * r), f(actual * r), f(remaining * r)]);
+      const f = (v: number) => String(Math.round(v * 100) / 100);
+      rows.push([String(n++), k.id, rid, x.projId, f(budget), f(actual), f(remaining), f(budget * r), f(actual * r), f(remaining * r)]);
     }
   }
   t("TASKRSRC", ["taskrsrc_id", "task_id", "rsrc_id", "proj_id", "target_qty", "act_reg_qty", "remain_qty", "target_cost", "act_reg_cost", "remain_cost"], rows);
-  t("UDFTYPE", ["udf_type_id", "table_name", "udf_type_name", "udf_type_label", "logical_data_type"], [["900", "TASK", "user_field_1", "Subcontractor", "FT_TEXT"]]);
-  t(
-    "UDFVALUE",
-    ["udf_type_id", "fk_id", "proj_id", "udf_text"],
-    [
-      ["900", "1010", "100", "GroundWorks Ltd"],
-      ["900", "1100", "100", "Masonry Co"],
-      ["900", "1110", "100", "Masonry Co"],
-    ],
-  );
+  if (x.udfLabel && x.udf) {
+    t("UDFTYPE", ["udf_type_id", "table_name", "udf_type_name", "udf_type_label", "logical_data_type"], [["900", "TASK", "user_field_1", x.udfLabel, "FT_TEXT"]]);
+    t("UDFVALUE", ["udf_type_id", "fk_id", "proj_id", "udf_text"], Object.entries(x.udf).map(([task, v]) => ["900", task, x.projId, v]));
+  }
   t(
     "TASKPRED",
     ["task_pred_id", "task_id", "pred_task_id", "proj_id", "pred_proj_id", "pred_type", "lag_hr_cnt"],
-    RELS.map(([p, s, ty, lag], i) => [`${500 + i}`, s, p, "100", "100", ty, String(lag)]),
+    x.rels.map(([pr, su, ty, lag], i) => [`${500 + i}`, su, pr, x.projId, x.projId, ty, String(lag)]),
   );
   L.push("%E");
   return L.join("\r\n");

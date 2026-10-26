@@ -1,6 +1,7 @@
 // Dashboards, report schedules and the shared settings model.
 // Pure data and functions: used by the browser, the desktop app's main
 // process and the server alike.
+import { monthShort } from "./dates";
 
 export type WidgetKind =
   | "kpi" // one number: SPI, CPI, finish date, % complete…
@@ -221,7 +222,7 @@ export function computeNextRun(s: Pick<ReportSchedule, "frequency" | "time" | "w
 export function fillTemplate(t: string, vars: { project: string; date: number; dataDate: number | null; utcOffsetMinutes: number }): string {
   const fmt = (ms: number) => {
     const d = new Date(ms + vars.utcOffsetMinutes * MIN);
-    return `${String(d.getUTCDate()).padStart(2, "0")}-${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}-${d.getUTCFullYear()}`;
+    return `${String(d.getUTCDate()).padStart(2, "0")}-${monthShort(d)}-${d.getUTCFullYear()}`;
   };
   return t
     .replace(/\{project\}/g, vars.project)

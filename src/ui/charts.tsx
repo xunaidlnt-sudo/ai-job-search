@@ -5,6 +5,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { fmtDate } from "./store";
+import { monthShort } from "../core/dates";
 
 export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"];
 export const OTHER = "#8a8f98";
@@ -46,7 +47,7 @@ function monthTicks(lo: number, hi: number): number[] {
   return out;
 }
 
-const monthLabel = (t: number) => new Date(t).toLocaleString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" });
+const monthLabel = (t: number) => `${monthShort(new Date(t))} ${String(new Date(t).getUTCFullYear()).slice(2)}`;
 
 export function LineChart({
   series,
@@ -329,7 +330,7 @@ export function PeriodBars({
                 if (v === null || v === undefined || v <= 0) return null;
                 return <rect key={s.id} x={M.l + i * band + 2 + k * (bw + 2)} y={y(v)} width={bw} height={Math.max(0, Hh - M.b - y(v))} fill={s.color} rx="1" />;
               })}
-              {periods.length <= 24 && (
+              {i % Math.max(1, Math.ceil(periods.length / 10)) === 0 && (
                 <text x={M.l + i * band + band / 2} y={Hh - 8} textAnchor="middle" className="tick">
                   {monthLabel(p.t)}
                 </text>

@@ -4,6 +4,7 @@
 import { evm, resourceHistogram, sCurves, type Measure } from "./evm";
 import type { KpiMetric, TableFilter } from "./reporting";
 import type { Activity, Schedule } from "./types";
+import { monthShort } from "./dates";
 
 const DAY = 86_400_000;
 
@@ -19,7 +20,7 @@ export interface KpiValue {
 const fmtDay = (t: number | null) => {
   if (t === null || !Number.isFinite(t)) return "–";
   const d = new Date(t);
-  return `${String(d.getUTCDate()).padStart(2, "0")}-${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}-${String(d.getUTCFullYear()).slice(2)}`;
+  return `${String(d.getUTCDate()).padStart(2, "0")}-${monthShort(d)}-${String(d.getUTCFullYear()).slice(2)}`;
 };
 const compact = (v: number) => {
   const a = Math.abs(v);

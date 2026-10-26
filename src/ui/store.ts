@@ -16,6 +16,7 @@ import type {
   Schedule,
 } from "../core/types";
 import type { ScheduleDiff } from "../core/update";
+import { monthShort } from "../core/dates";
 
 export type SideTab = "selection" | "rules" | "profiles" | "display" | "check" | "tools";
 export type LeftTab = "gantt" | "activity" | "cost" | "resources" | "quantities";
@@ -223,7 +224,7 @@ export { DAY };
 export function fmtDate(t: number | null | undefined): string {
   if (t === null || t === undefined) return "";
   const d = new Date(t);
-  return `${String(d.getUTCDate()).padStart(2, "0")}-${d.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}-${String(d.getUTCFullYear()).slice(2)}`;
+  return `${String(d.getUTCDate()).padStart(2, "0")}-${monthShort(d)}-${String(d.getUTCFullYear()).slice(2)}`;
 }
 
 /** "2026-03-02T08:00" for <input type="datetime-local"> (UTC wall time). */

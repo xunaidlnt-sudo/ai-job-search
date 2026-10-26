@@ -38,7 +38,13 @@ Added after reading user reviews of existing 4D tools (see [docs/PARITY.md](docs
 - **Autosave and restore**: work is saved in the browser every few seconds; after a crash or closed tab Stratum offers to restore it.
 - **Getting-started guide and shortcuts**: press `?`. Space plays, arrows step a day (Shift for a week), Home/End jump.
 
-A built-in demo (two-storey RC frame, 14-activity resource-loaded P6 schedule, a mobile crane on a path) shows the whole workflow without any files. Click **Load demo**. `samples/` has the demo as an XER and a small MS Project XML.
+Two sample projects show the whole workflow without any files:
+- **220/33 kV GIS substation, Abu Dhabi** (fictional). It has an EPC schedule of 46 activities on a UAE 6-day calendar with public holidays, costs in AED, procurement of GIS and transformers, and a 202-element model of the GIS hall, transformer bays, control building, trenches and site works.
+- **Small RC building.**
+
+Load either from the empty workspace or the File menu. `samples/` has the RC demo as an XER and a small MS Project XML.
+
+**User guide:** [docs/Stratum-4D-User-Guide.pdf](docs/Stratum-4D-User-Guide.pdf) (42 pages, with screenshots, worked through the GIS substation example).
 
 Planned work and how Stratum compares with SYNCHRO 4D Pro's public feature set are in [docs/PARITY.md](docs/PARITY.md). Development follows [docs/CLEAN_ROOM.md](docs/CLEAN_ROOM.md).
 

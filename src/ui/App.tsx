@@ -1,7 +1,8 @@
 import type * as THREE from "three";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleCpm, ScheduleLoopError } from "../core/cpm";
-import { demoModel, demoPaths, demoProfileFor, demoXer, DEMO_LINK_RULE } from "../core/demo";
+import { demoModel, demoPaths, demoProfileFor, demoXer, DEMO_LINK_RULE, type DemoBox } from "../core/demo";
+import { gisModel, gisPaths, gisProfileFor, gisXer } from "../core/demoGis";
 import { applyRules } from "../core/linking";
 import { motionAt } from "../core/motion";
 import { parseMspdi } from "../core/mspdi";
@@ -69,6 +70,33 @@ const LEFT_TABS: { id: LeftTab; label: string }[] = [
   { id: "resources", label: "Resources" },
   { id: "quantities", label: "Quantities" },
 ];
+
+/** The two built-in sample projects. The model name tells a saved project which one to rebuild. */
+type DemoKind = "gis" | "rc";
+const DEMO_MODEL_NAME: Record<DemoKind, string> = { rc: "Demo model", gis: "Demo model: 220 kV GIS substation" };
+const demoKindOf = (modelFileName: string | null | undefined): DemoKind | null =>
+  modelFileName === DEMO_MODEL_NAME.gis ? "gis" : modelFileName === DEMO_MODEL_NAME.rc ? "rc" : null;
+const DEMOS: Record<DemoKind, { model: () => DemoBox[]; xer: () => string; paths: (b: DemoBox[]) => ReturnType<typeof demoPaths>; profileFor: (code: string, ifcType: string) => string; done: string }> = {
+  gis: {
+    model: gisModel,
+    xer: gisXer,
+    paths: gisPaths,
+    profileFor: gisProfileFor,
+    done: "Sample loaded: 220/33 kV GIS substation, Abu Dhabi (fictional). Data date 19-Oct-2026.",
+  },
+  rc: {
+    model: demoModel,
+    xer: demoXer,
+    paths: demoPaths,
+    profileFor: (code, ifcType) => {
+      const p = demoProfileFor(code);
+      if (p === "install" && ifcType === "IfcSlab") return "install-pour";
+      if (p === "install" && ifcType === "IfcWall") return "install-rise";
+      return p;
+    },
+    done: "Demo loaded: two-storey RC building.",
+  },
+};
 
 /** Demo profiles: slabs pour west to east, walls build bottom-up. */
 function demoProfiles(): AppearanceProfile[] {
@@ -377,11 +405,12 @@ function Workspace() {
     const r = await useConfig.getState().backend.getProject(id);
     if (!r) throw new Error("Project not found");
     applyProject(r.project);
-    if (r.project.modelFileName === "Demo model") loadDemoModelOnly();
+    const rk = demoKindOf(r.project.modelFileName);
+    if (rk) loadDemoModelOnly(rk);
     store.setCurrentProject(id, r.version);
     store.setStatus(
       `Opened ${r.project.schedule?.projectCode ?? "project"} (version ${r.version}).` +
-        (r.project.modelFileName && r.project.modelFileName !== "Demo model" ? ` Open ${r.project.modelFileName} with Import IFC to see the 4D links.` : ""),
+        (r.project.modelFileName && !demoKindOf(r.project.modelFileName) ? ` Open ${r.project.modelFileName} with Import IFC to see the 4D links.` : ""),
     );
   };
 
@@ -435,42 +464,40 @@ function Workspace() {
   openers.current = { importScheduleBytes, importIfcBytes };
   saveRef.current = saveToDb;
 
-  const loadDemoModelOnly = () => {
-    const boxes = demoModel();
+  const loadDemoModelOnly = (kind: DemoKind) => {
+    const boxes = DEMOS[kind].model();
     store.setModel(
       boxes.map((b) => b.element),
-      "Demo model",
+      DEMO_MODEL_NAME[kind],
     );
     loadObjects(Viewer.demoObjects(boxes));
   };
 
-  const loadDemo = () => {
-    const boxes = demoModel();
+  const loadDemo = (kind: DemoKind = "gis") => {
+    const d = DEMOS[kind];
+    const boxes = d.model();
     const els = boxes.map((b) => b.element);
     store.setSegments([]);
     store.setGroups([]);
-    store.setModel(els, "Demo model");
+    store.setModel(els, DEMO_MODEL_NAME[kind]);
     loadObjects(Viewer.demoObjects(boxes));
-    const s = xerToSchedule(parseXerTables(demoXer()));
+    const s = xerToSchedule(parseXerTables(d.xer()));
     store.setSchedule(s);
     store.setProfiles(demoProfiles());
     const rule: LinkRule = { ...DEMO_LINK_RULE, profileId: "install" };
     const typeOf = new Map(els.map((e) => [e.id, e.ifcType]));
     const found = applyRules([rule], els, s).map((l) => {
       const code = s.activities.find((a) => a.id === l.activityId)!.code;
-      let profileId = demoProfileFor(code);
-      if (profileId === "install" && typeOf.get(l.elementId) === "IfcSlab") profileId = "install-pour";
-      if (profileId === "install" && typeOf.get(l.elementId) === "IfcWall") profileId = "install-rise";
-      return { ...l, profileId };
+      return { ...l, profileId: d.profileFor(code, typeOf.get(l.elementId) ?? "") };
     });
     store.setRules([rule]);
     store.setLinks(found);
-    store.setPaths(demoPaths(boxes));
+    store.setPaths(d.paths(boxes));
     store.setLastUpdate(null);
     store.setScheduleReport(null);
     store.setCurrentProject(null, null);
     store.setStatus(
-      `Demo loaded: ${els.length} elements linked to ${new Set(found.map((l) => l.activityId)).size} activities, with costs, resources and a crane path. Press Play, or F9 to reschedule.`,
+      `${d.done} ${els.length} elements linked to ${new Set(found.map((l) => l.activityId)).size} activities, with costs, resources and a crane path. Press Play, or F9 to reschedule.`,
     );
   };
 
@@ -508,7 +535,8 @@ function Workspace() {
     try {
       const p = parseProject(await f.text());
       applyProject(p);
-      if (p.modelFileName === "Demo model") loadDemoModelOnly();
+      const pk = demoKindOf(p.modelFileName);
+      if (pk) loadDemoModelOnly(pk);
       const loadedIds = new Set(useStore.getState().elements.map((e) => e.id));
       const matched = p.links.filter((l) => loadedIds.has(l.elementId)).length;
       store.setStatus(
@@ -589,9 +617,12 @@ function Workspace() {
       />
       {elements.length === 0 && (
         <div className="viewport-hint">
-          <p>No model loaded.</p>
-          <button className="primary" onClick={loadDemo}>
-            Load demo project
+          <p>No model loaded. Try a sample project:</p>
+          <button className="primary" onClick={() => loadDemo("gis")}>
+            220 kV GIS substation (UAE)
+          </button>
+          <button className="link" onClick={() => loadDemo("rc")}>
+            or a small RC building
           </button>
         </div>
       )}
@@ -600,6 +631,8 @@ function Workspace() {
 
   const canPush = !!schedule?.p6Source && schedule.p6Source.kind === "eppm";
   const dbLabel = backend.label;
+  // Short form for the top bar; the full label is in the tooltip.
+  const dbShort = backend.kind === "server" ? "Server" : backend.kind === "desktop" ? "Local database" : "This browser";
 
   // Buttons shared by every layout, so all three modes keep the same features.
   const I = { size: 16, strokeWidth: 1.9, "aria-hidden": true } as const;
@@ -680,7 +713,7 @@ function Workspace() {
       </button>
     ),
     demo: (
-      <button className="tb" onClick={loadDemo} title="Load the demo project">
+      <button className="tb" onClick={() => loadDemo("gis")} title="Load the 220 kV GIS substation sample project">
         <Sparkles {...I} />
         <span>Demo</span>
       </button>
@@ -715,7 +748,8 @@ function Workspace() {
         <hr />
         <button onClick={openProject}>Open project file…</button>
         <button onClick={saveProject} disabled={!schedule}>Save project file</button>
-        <button onClick={loadDemo}>Load demo</button>
+        <button onClick={() => loadDemo("gis")}>Sample: 220 kV GIS substation (UAE)</button>
+        <button onClick={() => loadDemo("rc")}>Sample: small RC building</button>
       </div>
     </details>
   );
@@ -730,8 +764,8 @@ function Workspace() {
   const toolbarRight = (
     <>
       <span className="spacer" />
-      <span className="muted conn" title="Where projects are stored">
-        {dbLabel}
+      <span className="muted conn" title={`Projects are stored in: ${dbLabel}`}>
+        {dbShort}
         {currentProjectId ? ` · v${currentVersion}` : ""}
       </span>
       {savedAt && <span className="muted autosaved">Autosaved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
@@ -877,12 +911,13 @@ function Workspace() {
         <div className="banner">
           Restore your last session? <b>{restore.schedule?.projectCode}</b>, {restore.links.length} links
           {restore.savedAt ? `, saved ${new Date(restore.savedAt).toLocaleString()}` : ""}.
-          {restore.modelFileName && restore.modelFileName !== "Demo model" ? ` Re-open ${restore.modelFileName} afterwards to see the links.` : ""}
+          {restore.modelFileName && !demoKindOf(restore.modelFileName) ? ` Re-open ${restore.modelFileName} afterwards to see the links.` : ""}
           <button
             className="primary"
             onClick={() => {
               applyProject(restore);
-              if (restore.modelFileName === "Demo model") loadDemoModelOnly();
+              const k = demoKindOf(restore.modelFileName);
+              if (k) loadDemoModelOnly(k);
               store.setStatus("Previous session restored.");
               setRestore(null);
             }}

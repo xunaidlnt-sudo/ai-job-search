@@ -6,6 +6,7 @@ import { buildGanttRows, type GanttRow } from "../core/wbs";
 import { useConfig } from "../backend/config";
 import { DAY, fmtDate, useStore } from "./store";
 import { useTerms, type Terms } from "./terms";
+import { monthShort } from "../core/dates";
 
 const ROW = 24;
 
@@ -73,7 +74,7 @@ function columnsFor(mode: InterfaceMode, t: Terms): Col[] {
     ];
   }
   return [
-    { key: "code", label: t.activityId, width: 76, render: (c) => c.a.code },
+    { key: "code", label: t.activityId, width: 86, render: (c) => c.a.code },
     { key: "name", label: "Name", width: 160, render: (c) => c.a.name },
     start,
     finish,
@@ -173,7 +174,7 @@ export function Gantt() {
   const months: { t: number; label: string }[] = [];
   const d0 = new Date(origin);
   for (let m = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 1)); m.getTime() < origin + totalDays * DAY; m.setUTCMonth(m.getUTCMonth() + 1)) {
-    months.push({ t: m.getTime(), label: m.toLocaleString("en-GB", { month: "short", year: "2-digit", timeZone: "UTC" }) });
+    months.push({ t: m.getTime(), label: `${monthShort(m)} ${String(m.getUTCFullYear()).slice(2)}` });
   }
 
   // Click picks the activity and keeps the 3D selection, so elements can be selected first and then linked.

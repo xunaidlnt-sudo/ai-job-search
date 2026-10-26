@@ -208,7 +208,7 @@ hr { border: none; border-top: 1px solid var(--line); margin: 4px 0; }
 .app { display: flex; flex-direction: column; height: 100%; }
 .app > .workspace { flex: 1; }
 .toolbar {
-  display: flex; gap: 4px; align-items: center; padding: 6px 10px; flex-wrap: wrap;
+  display: flex; gap: 4px; align-items: center; padding: 6px 10px; flex-wrap: wrap; row-gap: 4px;
   background: var(--chrome-bg); color: var(--chrome-text); border-bottom: 1px solid var(--chrome-line);
 }
 .app > .toolbar { box-shadow: var(--shadow-sm); position: relative; z-index: 5; }
@@ -270,7 +270,9 @@ html[data-mode="p6"] .mode-switch button.on, html[data-mode="msp"] .ribbon-tabs 
 .banner.info { background: var(--info-bg); border-bottom-color: var(--info-line); }
 
 /* ---------- 4D layout ---------- */
-.workspace { display: grid; grid-template-columns: minmax(420px, 42%) 1fr 300px; min-height: 0; }
+.workspace { display: grid; grid-template-columns: minmax(420px, 42%) 1fr 320px; min-height: 0; }
+.right .tabs { padding: 0 4px; gap: 0; }
+.right .tabs button { flex: 1 1 auto; padding: 0 6px; font-size: 12px; }
 .left, .right { background: var(--panel); min-height: 0; overflow: hidden; }
 .left { border-right: 1px solid var(--line); display: flex; flex-direction: column; }
 .right { border-left: 1px solid var(--line); }

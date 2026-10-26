@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { activeAt, scheduleRange } from "../core/simulation";
 import { DAY, fmtDate, useStore } from "./store";
 import { useTerms } from "./terms";
+import { monthShort, WEEKDAYS } from "../core/dates";
 
 const SPEEDS = [1, 3, 7, 14, 30, 60];
 
@@ -45,7 +46,7 @@ export function Timeline() {
 
   const step = (days: number) => setTime(Math.min(range.finish, Math.max(range.start, time + days * DAY)));
   const d = new Date(time);
-  const dateLabel = `${d.toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric", timeZone: "UTC" })}`;
+  const dateLabel = `${WEEKDAYS[d.getUTCDay()]}, ${String(d.getUTCDate()).padStart(2, "0")} ${monthShort(d)} ${d.getUTCFullYear()}`;
 
   return (
     <div className="timeline">
