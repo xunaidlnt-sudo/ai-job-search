@@ -157,6 +157,8 @@ export interface P6Connection {
   file?: string;
   user?: string;
   password?: string;
+  /** Optional company root certificate(s), PEM, trusted for this connection on top of the built-in list. */
+  caCert?: string;
 }
 
 export type InterfaceMode = "p6" | "msp" | "4d";

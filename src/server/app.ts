@@ -174,7 +174,7 @@ export async function buildServer(o: ServerOptions) {
   });
 
   // ---- P6
-  app.post<{ Body: { connection: never } }>("/api/p6/test", { preHandler: auth("planner") }, async (req) => ({ message: await api.p6Test(req.body.connection) }));
+  app.post<{ Body: { connection: never } }>("/api/p6/test", { preHandler: auth("planner") }, async (req) => api.p6Test(req.body.connection));
   app.get<{ Params: { conn: string } }>("/api/p6/:conn/projects", { preHandler: auth("planner") }, async (req) => api.p6Projects(req.params.conn));
   app.post<{ Params: { conn: string }; Body: { objectId: string } }>("/api/p6/:conn/import", { preHandler: auth("planner") }, async (req) => api.p6Import(req.params.conn, req.body.objectId));
   app.post<{ Params: { conn: string }; Body: { schedule: never } }>("/api/p6/:conn/push", { preHandler: auth("planner") }, async (req) => api.p6Push(req.params.conn, req.body.schedule));

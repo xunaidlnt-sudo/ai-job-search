@@ -6,6 +6,8 @@
 import type { StratumProject } from "../core/project";
 import type { Dashboard, P6Connection, ReportRun, ReportSchedule, SmtpSettings } from "../core/reporting";
 import type { Schedule } from "../core/types";
+import type { P6Diagnosis } from "../services/p6/diagnose";
+export type { P6Diagnosis, CheckStep } from "../services/p6/diagnose";
 
 export interface ProjectSummary {
   id: string;
@@ -79,7 +81,7 @@ export interface Backend {
 
   getP6(): Promise<P6Connection[]>;
   setP6(list: P6Connection[]): Promise<void>;
-  p6Test(c: P6Connection): Promise<string>;
+  p6Test(c: P6Connection): Promise<P6Diagnosis>;
   p6Projects(connectionId: string): Promise<P6ProjectInfo[]>;
   p6Import(connectionId: string, objectId: string): Promise<Schedule>;
   p6Push(connectionId: string, schedule: Schedule): Promise<{ updated: number; skipped: string[] }>;

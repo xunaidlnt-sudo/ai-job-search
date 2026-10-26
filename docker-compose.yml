@@ -28,6 +28,10 @@ services:
       DATABASE_URL: postgres://stratum:${POSTGRES_PASSWORD}@db:5432/stratum
       STRATUM_SECRET: ${STRATUM_SECRET:?set STRATUM_SECRET in .env}
       PUBLIC_URL: http://127.0.0.1:8080
+      # Company root certificate / proxy for reaching P6 (see .env.example):
+      NODE_EXTRA_CA_CERTS: ${NODE_EXTRA_CA_CERTS:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-}
     ports:
       - "${STRATUM_PORT:-8080}:8080"
 

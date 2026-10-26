@@ -26,7 +26,15 @@ export class EppmClient {
   private cookie = "";
   private fieldCache = new Map<string, Set<string> | null>();
 
-  constructor(private cfg: P6Connection, private fetchImpl: typeof fetch = fetch) {
+  /**
+   * cookieJar: the fetch keeps cookies itself (Electron session fetch), so a
+   * login that shows no Set-Cookie header is still a good login.
+   */
+  constructor(
+    private cfg: P6Connection,
+    private fetchImpl: typeof fetch = fetch,
+    private opts: { cookieJar?: boolean } = {},
+  ) {
     if (!cfg.url) throw new Error("P6 EPPM REST URL is required, e.g. https://p6.company.com/p6ws/restapi");
   }
 
@@ -51,7 +59,7 @@ export class EppmClient {
       .filter(Boolean)
       .map((c) => c.split(";")[0])
       .join("; ");
-    if (!this.cookie) throw new Error("P6 login returned no session cookie");
+    if (!this.cookie && !this.opts.cookieJar) throw new Error("P6 login returned no session cookie");
   }
 
   async logout(): Promise<void> {
@@ -280,8 +288,8 @@ export async function eppmPullTables(client: EppmClient, projectObjectId: string
   };
 }
 
-export async function eppmImport(cfg: P6Connection, projectObjectId: string, fetchImpl?: typeof fetch): Promise<Schedule> {
-  const client = new EppmClient(cfg, fetchImpl);
+export async function eppmImport(cfg: P6Connection, projectObjectId: string, fetchImpl?: typeof fetch, opts: { cookieJar?: boolean } = {}): Promise<Schedule> {
+  const client = new EppmClient(cfg, fetchImpl, opts);
   await client.login();
   try {
     const tables = await eppmPullTables(client, projectObjectId);
@@ -310,8 +318,8 @@ export interface PushResult {
  * are not created through the API (use XER for those); they are listed as
  * skipped so nothing is silently lost.
  */
-export async function eppmPushProgress(cfg: P6Connection, schedule: Schedule, fetchImpl?: typeof fetch): Promise<PushResult> {
-  const client = new EppmClient(cfg, fetchImpl);
+export async function eppmPushProgress(cfg: P6Connection, schedule: Schedule, fetchImpl?: typeof fetch, opts: { cookieJar?: boolean } = {}): Promise<PushResult> {
+  const client = new EppmClient(cfg, fetchImpl, opts);
   await client.login();
   try {
     const pid = schedule.p6Source?.projectObjectId;

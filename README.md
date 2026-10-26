@@ -73,6 +73,22 @@ Desktop app and Stratum Server only (the browser cannot reach a P6 server direct
 - **P6 EPPM** (web services REST API, 20.x and later): sign in with a P6 user or a bearer token. Stratum reads projects, WBS, activities, relationships, calendars, codes, UDFs, resources and assignments. **Update P6** sends progress back: actual start and finish, % complete and remaining duration. Activities added in Stratum are listed rather than pushed; take those over with an XER.
 - **P6 Professional database**: SQL Server, Oracle or SQLite. Read-only by design, so use a read-only database login. Deleted rows and baseline copies are skipped. To return dates to P6 Professional, export an XER and import it with *Update Existing Project*.
 
+**Before you connect, and when it fails.** Stratum only makes outgoing HTTPS calls to P6, so nothing needs port forwarding on the Stratum side. The machine running Stratum must be able to reach the P6 server, the same way a browser reaches the P6 web client. **Test connection** checks each link in turn and says what to fix if one breaks:
+- the address;
+- the server name (DNS);
+- the port;
+- the certificate (expired, wrong name, or issued by a company authority this machine doesn't trust);
+- the REST API path;
+- sign-in (wrong password, or no API module access);
+- project access (OBS).
+
+**Copy report for IT** puts the result on the clipboard.
+
+**Company certificates and proxies.**
+- **Desktop app:** P6 calls go through Electron's network stack, so they trust the Windows / macOS certificate store and use the system proxy.
+- **Stratum Server:** set `NODE_EXTRA_CA_CERTS` to a PEM file holding the company root certificate, and `HTTPS_PROXY` / `NO_PROXY` if P6 must be reached through a proxy.
+- **Either:** paste the root certificate into **Company certificate** on the connection.
+
 Passwords are stored encrypted: with the operating-system keychain in the desktop app, and with AES-GCM keyed by `STRATUM_SECRET` on the server. They are never sent back to the browser.
 
 ## Dashboards and reports

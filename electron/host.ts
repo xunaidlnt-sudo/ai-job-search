@@ -5,7 +5,7 @@
 //   - Scheduled emails: sent while the app is running.
 // Bundled with esbuild into electron/host.cjs (see npm run build:electron).
 
-import { app, BrowserWindow, ipcMain, safeStorage } from "electron";
+import { app, BrowserWindow, ipcMain, safeStorage, session } from "electron";
 import crypto from "node:crypto";
 import os from "node:os";
 import path from "node:path";
@@ -14,6 +14,16 @@ import { Repository } from "../src/services/repo";
 import { startScheduler } from "../src/services/runner";
 import { aesBox, type SecretBox } from "../src/services/secrets";
 import { openSqlite } from "../src/services/sql";
+
+/**
+ * fetch through Chromium's network stack: it trusts the Windows / macOS
+ * certificate store (company CAs included), follows the system proxy, and
+ * keeps P6 session cookies in an in-memory session of its own.
+ */
+function platformFetch(): typeof fetch {
+  const ses = session.fromPartition("stratum-p6");
+  return ((url: string, init?: RequestInit) => ses.fetch(url, { ...init, credentials: "include" })) as unknown as typeof fetch;
+}
 
 /** Methods the renderer may call. Anything else is refused. */
 const ALLOWED = new Set([
@@ -91,7 +101,7 @@ export async function startHost(o: HostOptions): Promise<{ dbFile: string; stop:
     }
   };
 
-  const api = new StratumApi({ repo, box: keychainBox(), renderPdf, wasmDir: __dirname, log: o.log });
+  const api = new StratumApi({ repo, box: keychainBox(), renderPdf, wasmDir: __dirname, log: o.log, p6Fetch: platformFetch(), p6CookieJar: true, where: "desktop" });
 
   ipcMain.handle("stratum:api", async (_e, method: string, args: unknown[]) => {
     if (!ALLOWED.has(method)) throw new Error(`Not allowed: ${method}`);

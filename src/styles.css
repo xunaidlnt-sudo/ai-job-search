@@ -678,3 +678,20 @@ html[data-theme="dark"] .dash-canvas.theme-report { border-radius: var(--radius)
 }
 
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* P6 connection check */
+.cert-box { border: 1px solid var(--line); border-radius: var(--radius-sm); padding: 6px 10px; background: var(--surface-2); }
+.cert-box summary { cursor: pointer; font-weight: 550; color: var(--text); }
+.cert-box textarea { width: 100%; font: 11px var(--mono); margin-top: 4px; }
+.diag { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--surface-2); }
+.diag-ok { border-left: 4px solid var(--good); }
+.diag-bad { border-left: 4px solid var(--bad); }
+.diag-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.diag-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.diag-steps li { display: flex; gap: 10px; align-items: flex-start; }
+.step-icon { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 700; color: #fff; background: var(--muted); margin-top: 1px; }
+.step-ok .step-icon { background: var(--good); }
+.step-warn .step-icon { background: #d99a00; }
+.step-fail .step-icon { background: var(--bad); }
+.step-skip .step-icon { background: transparent; color: var(--muted); border: 1px solid var(--line); }
+.step-hint { margin-top: 2px; font-size: 12px; color: var(--text-2); background: var(--panel); border: 1px solid var(--line-soft); border-radius: var(--radius-sm); padding: 4px 8px; }

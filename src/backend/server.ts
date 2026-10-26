@@ -72,7 +72,7 @@ export function serverBackend(base: string, token: string, user: SessionUser | n
     testSmtp: async (smtp, to) => (await r<{ message: string }>("POST", "/api/settings/smtp/test", { smtp, to })).message,
     getP6: () => r("GET", "/api/settings/p6"),
     setP6: async (l) => void (await r("PUT", "/api/settings/p6", l)),
-    p6Test: async (connection) => (await r<{ message: string }>("POST", "/api/p6/test", { connection })).message,
+    p6Test: (connection) => r("POST", "/api/p6/test", { connection }),
     p6Projects: (id) => r("GET", `/api/p6/${encodeURIComponent(id)}/projects`),
     p6Import: (id, objectId) => r("POST", `/api/p6/${encodeURIComponent(id)}/import`, { objectId }),
     p6Push: (id, schedule) => r("POST", `/api/p6/${encodeURIComponent(id)}/push`, { schedule }),

@@ -5,7 +5,8 @@ import type { StratumProject } from "../core/project";
 import { computeNextRun, uid, type Dashboard, type P6Connection, type ReportRun, type ReportSchedule, type SmtpSettings } from "../core/reporting";
 import type { Schedule } from "../core/types";
 import { isEmail, smtpMailer } from "./mailer";
-import { p6Import, p6ListProjects, p6Push, p6Test, type P6ProjectInfo } from "./p6";
+import { p6Import, p6ListProjects, p6Push, type P6ProjectInfo } from "./p6";
+import { p6Diagnose, type P6Diagnosis } from "./p6/diagnose";
 import type { PushResult } from "./p6/eppm";
 import type { ProjectSummary, Repository } from "./repo";
 import { runSchedule } from "./runner";
@@ -17,6 +18,12 @@ export interface ApiDeps {
   renderPdf: ((dashboardId: string, projectId: string | null) => Promise<Buffer>) | null;
   wasmDir?: string;
   log?: (msg: string) => void;
+  /** Platform fetch for P6 (desktop: Electron's, with the OS certificate store and proxy). */
+  p6Fetch?: typeof fetch;
+  /** p6Fetch keeps its own cookies. */
+  p6CookieJar?: boolean;
+  /** Where this API runs, for connection-check hints. */
+  where?: "desktop" | "server";
 }
 
 export class StratumApi {
@@ -128,17 +135,21 @@ export class StratumApi {
     const stored = all.find((x) => x.id === c.id);
     return { ...c, password: c.password === MASK ? stored?.password ?? "" : c.password, token: c.token === MASK ? stored?.token ?? "" : c.token };
   }
-  async p6Test(c: P6Connection | string): Promise<string> {
-    return p6Test(await this.resolveP6(c), { wasmDir: this.d.wasmDir });
+  private get p6Opts() {
+    return { wasmDir: this.d.wasmDir, fetch: this.d.p6Fetch, cookieJar: this.d.p6CookieJar };
+  }
+  /** Step-by-step connection check (address, name, port, certificate, API, sign-in, access). */
+  async p6Test(c: P6Connection | string): Promise<P6Diagnosis> {
+    return p6Diagnose(await this.resolveP6(c), { ...this.p6Opts, where: this.d.where });
   }
   async p6Projects(connectionId: string): Promise<P6ProjectInfo[]> {
-    return p6ListProjects(await this.resolveP6(connectionId), { wasmDir: this.d.wasmDir });
+    return p6ListProjects(await this.resolveP6(connectionId), this.p6Opts);
   }
   async p6Import(connectionId: string, objectId: string): Promise<Schedule> {
-    return p6Import(await this.resolveP6(connectionId), objectId, { wasmDir: this.d.wasmDir });
+    return p6Import(await this.resolveP6(connectionId), objectId, this.p6Opts);
   }
   async p6Push(connectionId: string, schedule: Schedule): Promise<PushResult> {
-    return p6Push(await this.resolveP6(connectionId), schedule);
+    return p6Push(await this.resolveP6(connectionId), schedule, this.p6Opts);
   }
 
   // ---- general settings (org defaults)

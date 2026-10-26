@@ -37,7 +37,7 @@ async function main() {
     renderPdf = await playwrightRenderer(publicUrl, () => tokenSource!());
     if (!renderPdf) console.warn("[stratum] Playwright/Chromium not available: reports will attach Excel only.");
   }
-  const api = new StratumApi({ repo, box: aesBox(secret), renderPdf, wasmDir, log: (m) => console.log(m) });
+  const api = new StratumApi({ repo, box: aesBox(secret), renderPdf, wasmDir, log: (m) => console.log(m), where: "server" });
   const { app, internalRenderToken } = await buildServer({ repo, api, jwtSecret: secret, staticDir, log: true });
   tokenSource = internalRenderToken;
   await app.listen({ port, host: "0.0.0.0" });

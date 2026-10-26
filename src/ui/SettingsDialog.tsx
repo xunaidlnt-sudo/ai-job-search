@@ -2,7 +2,7 @@ import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isDesktop, useConfig } from "../backend/config";
 import { serverLogin, serverStatus, type serverBackend } from "../backend/server";
-import type { SessionUser } from "../backend/types";
+import type { CheckStep, P6Diagnosis, SessionUser } from "../backend/types";
 import { uid, type InterfaceMode, type P6Connection, type P6ConnectionKind, type SmtpSettings } from "../core/reporting";
 import { FONTS } from "./appearance";
 import { MODE_INFO } from "./terms";
@@ -196,6 +196,20 @@ function P6Tab() {
   const [list, setList] = useState<P6Connection[]>([]);
   const [edit, setEdit] = useState<P6Connection | null>(null);
   const [msg, setMsg] = useState("");
+  const [diag, setDiag] = useState<{ name: string; d: P6Diagnosis } | null>(null);
+  const [testing, setTesting] = useState(false);
+  const runTest = async (c: P6Connection) => {
+    setMsg("");
+    setDiag(null);
+    setTesting(true);
+    try {
+      setDiag({ name: c.name, d: await backend.p6Test(c) });
+    } catch (e) {
+      setMsg(`${c.name}: ${(e as Error).message}`);
+    } finally {
+      setTesting(false);
+    }
+  };
   useEffect(() => {
     backend.getP6().then(setList).catch((e) => setMsg(e.message));
   }, [backend]);
@@ -226,17 +240,7 @@ function P6Tab() {
                 </button>
               </>
             )}
-            <button
-              className="link"
-              onClick={async () => {
-                setMsg("Testing…");
-                try {
-                  setMsg(`${c.name}: ${await backend.p6Test(c)}`);
-                } catch (e) {
-                  setMsg(`${c.name}: ${(e as Error).message}`);
-                }
-              }}
-            >
+            <button className="link" disabled={testing} onClick={() => runTest(c)}>
               test
             </button>
           </li>
@@ -287,6 +291,14 @@ function P6Tab() {
               ) : (
                 <UserPass edit={edit} setEdit={setEdit} />
               )}
+              <details className="cert-box" open={!!edit.caCert}>
+                <summary>Company certificate (optional)</summary>
+                <p className="muted">
+                  Only needed if the P6 server uses a certificate from your company's own authority and it isn't installed on {backend.kind === "desktop" ? "this PC" : "the Stratum Server"}. Paste the root certificate (PEM text starting with -----BEGIN CERTIFICATE-----). IT can export it from the browser's padlock → certificate → root → export as Base-64.
+                </p>
+                <textarea rows={4} value={edit.caCert ?? ""} onChange={(e) => setEdit({ ...edit, caCert: e.target.value || undefined })} placeholder="-----BEGIN CERTIFICATE-----" spellCheck={false} />
+                {edit.caCert && !/-----BEGIN CERTIFICATE-----[\s\S]+-----END CERTIFICATE-----/.test(edit.caCert) && <p className="bad">That doesn't look like a PEM certificate.</p>}
+              </details>
             </>
           )}
           {(edit.kind === "p6-sqlserver" || edit.kind === "p6-oracle") && (
@@ -332,23 +344,55 @@ function P6Tab() {
             >
               Save
             </button>
-            <button
-              onClick={async () => {
-                setMsg("Testing…");
-                try {
-                  setMsg(await backend.p6Test(edit));
-                } catch (e) {
-                  setMsg((e as Error).message);
-                }
-              }}
-            >
-              Test
+            <button disabled={testing} onClick={() => runTest(edit)}>
+              {testing ? "Checking…" : "Test connection"}
             </button>
             <button onClick={() => setEdit(null)}>Cancel</button>
           </div>
         </section>
       )}
+      {testing && <p className="muted">Checking the connection step by step…</p>}
+      {diag && <DiagnosisView name={diag.name} d={diag.d} />}
       {msg && <p className={/fail|error|cannot|refused|not found|denied|401|403/i.test(msg) ? "bad" : "good"}>{msg}</p>}
+    </div>
+  );
+}
+
+const STEP_ICON: Record<CheckStep["status"], string> = { ok: "✓", warn: "!", fail: "✕", skip: "–" };
+
+function DiagnosisView({ name, d }: { name: string; d: P6Diagnosis }) {
+  const [copied, setCopied] = useState(false);
+  const report = () =>
+    [`Stratum 4D connection check: ${name}`, `Result: ${d.summary}`, "", ...d.steps.map((s) => `[${s.status.toUpperCase()}] ${s.label}: ${s.detail}${s.hint ? `\n       → ${s.hint}` : ""}`)].join("\n");
+  return (
+    <div className={`diag ${d.ok ? "diag-ok" : "diag-bad"}`}>
+      <div className="diag-head">
+        <b>{d.ok ? "Connection works" : "Connection failed"}</b>
+        <span className="spacer" />
+        <button
+          className="link"
+          onClick={() => {
+            void navigator.clipboard?.writeText(report()).then(() => setCopied(true));
+          }}
+        >
+          {copied ? "Copied" : "Copy report for IT"}
+        </button>
+      </div>
+      <ol className="diag-steps">
+        {d.steps.map((s) => (
+          <li key={s.id} className={`step-${s.status}`}>
+            <span className="step-icon" aria-label={s.status}>
+              {STEP_ICON[s.status]}
+            </span>
+            <div>
+              <div>
+                <b>{s.label}</b> <span className="muted">{s.detail}</span>
+              </div>
+              {s.hint && <div className="step-hint">{s.hint}</div>}
+            </div>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
