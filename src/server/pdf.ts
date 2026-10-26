@@ -20,7 +20,8 @@ export async function playwrightRenderer(baseUrl: string, token: () => string): 
       if (await page.evaluate(() => document.body.dataset.reportReady === "error")) {
         throw new Error(await page.evaluate(() => document.body.dataset.reportError ?? "Report failed to render"));
       }
-      return Buffer.from(await page.pdf({ format: "A4", landscape: true, printBackground: true, margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } }));
+      const landscape = (await page.evaluate(() => document.body.dataset.orientation)) !== "portrait";
+      return Buffer.from(await page.pdf({ format: "A4", landscape, printBackground: true, margin: { top: "10mm", bottom: "10mm", left: "8mm", right: "8mm" } }));
     } finally {
       await browser.close();
     }

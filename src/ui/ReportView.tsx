@@ -4,11 +4,9 @@
 
 import { useEffect, useState } from "react";
 import type { Backend } from "../backend/types";
-import { fmtDay } from "../core/dashboardData";
-import { applySlices } from "../core/progress";
 import type { Dashboard } from "../core/reporting";
 import type { Schedule } from "../core/types";
-import { WidgetView, type PortfolioEntry } from "./Widgets";
+import { PageHead, pageStyle, WidgetFrame, widgetSchedule, WidgetView, type PortfolioEntry } from "./Widgets";
 
 export function ReportView({ dashboardId, projectId, backend }: { dashboardId: string; projectId: string | null; backend: Backend }) {
   const [dash, setDash] = useState<Dashboard | null>(null);
@@ -47,6 +45,7 @@ export function ReportView({ dashboardId, projectId, backend }: { dashboardId: s
       document.body.dataset.reportError = error;
       document.body.dataset.reportReady = "error";
     } else if (dash) {
+      document.body.dataset.orientation = dash.page?.orientation ?? "landscape";
       // Let React paint the SVG charts first.
       requestAnimationFrame(() => requestAnimationFrame(() => (document.body.dataset.reportReady = "1")));
     }
@@ -56,38 +55,25 @@ export function ReportView({ dashboardId, projectId, backend }: { dashboardId: s
   if (!dash) return <div className="empty">Preparing report…</div>;
   const main = dash.projectId ? schedules[dash.projectId] : null;
 
+  const ps = pageStyle(dash);
   return (
-    <div className={`report-page ${dash.theme === "report" ? "theme-report" : ""}`}>
-      <div className="report-head">
-        <img src="./stratum-logo.png" alt="Stratum 4D" />
-        <div>
-          <b>{main ? `${main.projectCode} – ${main.projectName}` : dash.name}</b>
-          <div className="muted">
-            {dash.name} · Data date {fmtDay(main?.dataDate ?? null)} · Generated {new Date().toLocaleString()}
-          </div>
-        </div>
-      </div>
+    <div className={`report-page ${ps.className}`} style={ps.style}>
+      {dash.page?.orientation === "portrait" && <style>{"@page { size: A4 portrait; }"}</style>}
+      <PageHead dash={dash} schedule={main} print />
       <div className="dash-grid">
-        {dash.widgets.map((w) => (
-          <section key={w.id} className={`widget w${w.w} h${w.h}`}>
-            <header>
-              <span className="widget-title">{w.title}</span>
-            </header>
-            <div className="widget-body">
-              <WidgetView
-                w={w}
-                schedule={(() => {
-                  const raw = (w.projectId ? schedules[w.projectId] : main) ?? null;
-                  return raw && w.kind !== "slicer" ? applySlices(raw, dash.slices) : raw;
-                })()}
-                portfolio={portfolio}
-                slice={{ slices: dash.slices ?? [], raw: (w.projectId ? schedules[w.projectId] : main) ?? null }}
-              />
-            </div>
-          </section>
-        ))}
+        {dash.widgets.map((w) => {
+          const raw = (w.projectId ? schedules[w.projectId] : main) ?? null;
+          const s = widgetSchedule(raw, w, dash.slices);
+          return (
+            <WidgetFrame key={w.id} w={w} dash={dash} schedule={s}>
+              <WidgetView w={w} schedule={s} portfolio={portfolio} slice={{ slices: dash.slices ?? [], raw }} />
+            </WidgetFrame>
+          );
+        })}
       </div>
-      <div className="report-foot">Stratum 4D · developed by Junaid Quamar</div>
+      <div className="report-foot">
+        {dash.page?.footer ? `${dash.page.footer} · ` : ""}Generated {new Date().toLocaleString()} · Stratum 4D · developed by Junaid Quamar
+      </div>
     </div>
   );
 }

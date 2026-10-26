@@ -95,7 +95,8 @@ export async function startHost(o: HostOptions): Promise<{ dbFile: string; stop:
         if (Date.now() - started > 60_000) throw new Error("Report took too long to render");
         await new Promise((r) => setTimeout(r, 200));
       }
-      return await win.webContents.printToPDF({ landscape: true, pageSize: "A4", printBackground: true, margins: { marginType: "custom", top: 0.4, bottom: 0.4, left: 0.3, right: 0.3 } });
+      const landscape = (await win.webContents.executeJavaScript("document.body.dataset.orientation || ''")) !== "portrait";
+      return await win.webContents.printToPDF({ landscape, pageSize: "A4", printBackground: true, margins: { marginType: "custom", top: 0.4, bottom: 0.4, left: 0.3, right: 0.3 } });
     } finally {
       win.destroy();
     }

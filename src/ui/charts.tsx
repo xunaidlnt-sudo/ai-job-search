@@ -20,9 +20,12 @@ export interface LineSeries {
   points: { t: number; v: number | null }[];
 }
 
-const W = 640;
-const H = 240;
-const M = { l: 56, r: 92, t: 12, b: 26 };
+const W0 = 640;
+const H0 = 240;
+const M0 = { l: 56, r: 92, t: 12, b: 26 };
+const W = W0;
+const M = M0;
+const H = H0;
 
 function niceMax(v: number): number {
   if (v <= 0) return 1;
@@ -56,8 +59,16 @@ export function LineChart({
   title,
   yMax,
   fmt = fmtNum,
+  area = false,
+  legend = true,
+  compact = false,
 }: {
   series: LineSeries[];
+  /** Fill under each line (low opacity). */
+  area?: boolean;
+  legend?: boolean;
+  /** Small-multiple size: narrower canvas, no end labels, readable ticks. */
+  compact?: boolean;
   markers?: { t: number; label: string; color: string }[];
   unit?: string;
   title: string;
@@ -68,6 +79,9 @@ export function LineChart({
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
+  const W = compact ? 340 : W0;
+  const H = compact ? 190 : H0;
+  const M = compact ? { l: 40, r: 10, t: 10, b: 24 } : M0;
   const all = series.flatMap((s) => s.points);
   const lo = Math.min(...all.map((p) => p.t));
   const hi = Math.max(...all.map((p) => p.t));
@@ -103,8 +117,8 @@ export function LineChart({
 
   return (
     <figure className="chart">
-      <figcaption>{title}</figcaption>
-      <div className="legend-row">
+      {title && <figcaption>{title}</figcaption>}
+      <div className="legend-row" hidden={!legend}>
         {series.map((s) => (
           <span key={s.id} className="legend-item">
             <svg width="18" height="8" aria-hidden>
@@ -124,7 +138,7 @@ export function LineChart({
               </text>
             </g>
           ))}
-          {monthTicks(lo, hi).map((t) => (
+          {monthTicks(lo, hi).filter((_, i, a) => !compact || a.length <= 5 || i % Math.ceil(a.length / 5) === 0).map((t) => (
             <text key={t} x={x(t)} y={H - 8} textAnchor="middle" className="tick">
               {monthLabel(t)}
             </text>
@@ -140,9 +154,16 @@ export function LineChart({
           {series.map((s) => {
             const pts = s.points.filter((p) => p.v !== null);
             const d = pts.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(1)},${y(p.v!).toFixed(1)}`).join("");
-            return <path key={s.id} d={d} fill="none" stroke={s.color} strokeWidth="2" strokeDasharray={s.dashed ? "5 4" : undefined} strokeLinejoin="round" />;
+            const fill =
+              area && !s.dashed && pts.length > 1 ? `${d}L${x(pts[pts.length - 1].t).toFixed(1)},${y(0)}L${x(pts[0].t).toFixed(1)},${y(0)}Z` : null;
+            return (
+              <g key={s.id}>
+                {fill && <path d={fill} fill={s.color} opacity="0.12" />}
+                <path d={d} fill="none" stroke={s.color} strokeWidth="2" strokeDasharray={s.dashed ? "5 4" : undefined} strokeLinejoin="round" />
+              </g>
+            );
           })}
-          {ends.map((e) => (
+          {!compact && ends.map((e) => (
             <text key={e.s.id} x={W - M.r + 6} y={e.y + 4} className="end-label">
               {e.s.short ?? e.s.label} {fmt(e.v)}
             </text>
@@ -355,3 +376,178 @@ export function PeriodBars({
 
 export const pct = (v: number) => `${(v * 100).toFixed(v * 100 >= 10 || v === 0 ? 0 : 1)}%`;
 export const pct2 = (v: number) => `${(v * 100).toFixed(2)}%`;
+
+/** Status colours: fixed, never reused for series; always shown with a label. */
+export const STATUS = { good: "#0ca30c", warning: "#fab219", serious: "#ec835a", critical: "#d03b3b", neutral: "#8a8f98", info: "#2a78d6" } as const;
+
+/**
+ * Half-dial gauge. Bands come from the "bad" and "good" limits; the needle
+ * shows the value. Direction follows the limits (good > bad: higher is better).
+ */
+export function Gauge({
+  value,
+  min = 0,
+  max,
+  good,
+  bad,
+  label,
+  fmt,
+  accent,
+}: {
+  value: number | null;
+  min?: number;
+  max: number;
+  good?: number;
+  bad?: number;
+  label: string;
+  fmt: (v: number) => string;
+  accent?: string;
+}) {
+  const R = 80;
+  const cx = 100;
+  const cy = 96;
+  const f = (v: number) => Math.min(1, Math.max(0, (v - min) / Math.max(1e-9, max - min)));
+  const pt = (fr: number, r = R) => [cx - r * Math.cos(Math.PI * fr), cy - r * Math.sin(Math.PI * fr)] as const;
+  const arc = (a: number, b: number, r = R) => {
+    const [x0, y0] = pt(a, r);
+    const [x1, y1] = pt(b, r);
+    return `M${x0.toFixed(1)},${y0.toFixed(1)}A${r},${r} 0 0 1 ${x1.toFixed(1)},${y1.toFixed(1)}`;
+  };
+  const bands: { a: number; b: number; color: string }[] = [];
+  if (good !== undefined && bad !== undefined) {
+    const up = good >= bad;
+    const lo = f(Math.min(good, bad));
+    const hi = f(Math.max(good, bad));
+    bands.push({ a: 0, b: lo, color: up ? STATUS.critical : STATUS.good }, { a: lo, b: hi, color: STATUS.warning }, { a: hi, b: 1, color: up ? STATUS.good : STATUS.critical });
+  }
+  const tone =
+    value === null || good === undefined || bad === undefined
+      ? null
+      : good >= bad
+        ? value >= good
+          ? "good"
+          : value < bad
+            ? "critical"
+            : "warning"
+        : value <= good
+          ? "good"
+          : value > bad
+            ? "critical"
+            : "warning";
+  const [nx, ny] = pt(value === null ? 0 : f(value), R - 18);
+  return (
+    <figure className="gauge">
+      <svg viewBox="-6 -8 212 126" role="img" aria-label={`${label}: ${value === null ? "no data" : fmt(value)}`}>
+        <path d={arc(0, 1)} className="gauge-track" strokeWidth="12" fill="none" />
+        {bands.map((b, i) => b.b > b.a && <path key={i} d={arc(b.a, b.b, R + 11)} stroke={b.color} strokeWidth="4" fill="none" />)}
+        {value !== null && <path d={arc(0, Math.max(0.002, f(value)))} stroke={tone ? STATUS[tone] : accent ?? SERIES[0]} strokeWidth="12" fill="none" />}
+        {value !== null && <line x1={cx} y1={cy} x2={nx} y2={ny} className="gauge-needle" strokeWidth="2.5" strokeLinecap="round" />}
+        <circle cx={cx} cy={cy} r="4" className="gauge-hub" />
+        <text x={cx - R} y={cy + 16} textAnchor="middle" className="tick">
+          {fmt(min)}
+        </text>
+        <text x={cx + R} y={cy + 16} textAnchor="middle" className="tick">
+          {fmt(max)}
+        </text>
+      </svg>
+      <figcaption>
+        <span className="gauge-value">{value === null ? "–" : fmt(value)}</span>
+        {tone && <span className={`status-pill ${tone}`}>{tone === "good" ? "On target" : tone === "warning" ? "Watch" : "Behind"}</span>}
+      </figcaption>
+    </figure>
+  );
+}
+
+/** Donut with a legend that carries the labels and counts. */
+export function Donut({ slices, total, caption = "activities" }: { slices: { id: string; label: string; value: number; color: string }[]; total?: string; caption?: string }) {
+  const [hover, setHover] = useState<string | null>(null);
+  const sum = slices.reduce((t, s) => t + s.value, 0);
+  if (!sum) return <p className="muted">Nothing to show.</p>;
+  const R = 52;
+  const r = 34;
+  let a0 = -Math.PI / 2;
+  const paths = slices
+    .filter((s) => s.value > 0)
+    .map((s) => {
+      const a1 = a0 + (s.value / sum) * Math.PI * 2;
+      const gap = slices.filter((x) => x.value > 0).length > 1 ? 0.02 : 0;
+      const p = (a: number, rr: number) => `${(60 + rr * Math.cos(a)).toFixed(2)},${(60 + rr * Math.sin(a)).toFixed(2)}`;
+      const large = a1 - a0 - 2 * gap > Math.PI ? 1 : 0;
+      const full = s.value === sum;
+      const d = full
+        ? `M60,${60 - R}A${R},${R} 0 1 1 59.99,${60 - R}ZM60,${60 - r}A${r},${r} 0 1 0 60.01,${60 - r}Z`
+        : `M${p(a0 + gap, R)}A${R},${R} 0 ${large} 1 ${p(a1 - gap, R)}L${p(a1 - gap, r)}A${r},${r} 0 ${large} 0 ${p(a0 + gap, r)}Z`;
+      a0 = a1;
+      return { ...s, d };
+    });
+  const h = slices.find((s) => s.id === hover);
+  return (
+    <figure className="donut">
+      <svg viewBox="0 0 120 120" role="img" aria-label={slices.map((s) => `${s.label} ${s.value}`).join(", ")} onPointerLeave={() => setHover(null)}>
+        {paths.map((s) => (
+          <path key={s.id} d={s.d} fill={s.color} fillRule="evenodd" opacity={hover && hover !== s.id ? 0.4 : 1} onPointerEnter={() => setHover(s.id)} />
+        ))}
+        <text x="60" y="58" textAnchor="middle" className="donut-total">
+          {h ? h.value : (total ?? sum)}
+        </text>
+        <text x="60" y="72" textAnchor="middle" className="tick">
+          {h ? `${Math.round((h.value / sum) * 100)}%` : caption}
+        </text>
+      </svg>
+      <ul className="donut-legend">
+        {slices.map((s) => (
+          <li key={s.id} onPointerEnter={() => setHover(s.id)} onPointerLeave={() => setHover(null)} className={hover === s.id ? "on" : ""}>
+            <span className="swatch" style={{ background: s.color }} />
+            <span>{s.label}</span>
+            <b>{s.value}</b>
+          </li>
+        ))}
+      </ul>
+    </figure>
+  );
+}
+
+/** Horizontal paired bars per group: e.g. plan % and actual % by discipline. */
+export function GroupBars({
+  rows,
+  series,
+  fmt,
+  max = 1,
+  legend = true,
+}: {
+  rows: { key: string; label: string; values: Record<string, number> }[];
+  series: StackSeries[];
+  fmt: (v: number) => string;
+  max?: number;
+  legend?: boolean;
+}) {
+  if (!rows.length) return <p className="muted">No groups to show.</p>;
+  return (
+    <figure className="gbars">
+      {legend && (
+        <div className="legend-row">
+          {series.map((s) => (
+            <span key={s.id} className="legend-item">
+              <span className="swatch" style={{ background: s.color }} /> {s.label}
+            </span>
+          ))}
+        </div>
+      )}
+      <div className="gbars-grid">
+        {rows.map((r) => (
+          <div key={r.key} className="gbars-row" title={`${r.label}: ${series.map((s) => `${s.label} ${fmt(r.values[s.id] ?? 0)}`).join(" · ")}`}>
+            <span className="gbars-label">{r.label}</span>
+            <span className="gbars-bars">
+              {series.map((s) => (
+                <span key={s.id} className="gbars-line">
+                  <span className="gbars-bar" style={{ width: `${Math.min(100, Math.max(0, ((r.values[s.id] ?? 0) / max) * 100))}%`, background: s.color }} />
+                  <span className="gbars-val">{fmt(r.values[s.id] ?? 0)}</span>
+                </span>
+              ))}
+            </span>
+          </div>
+        ))}
+      </div>
+    </figure>
+  );
+}

@@ -99,14 +99,24 @@ Passwords are stored encrypted: with the operating-system keychain in the deskto
 
 ## Dashboards and reports
 
-**Dashboards** opens a Power BI-style builder. Start from a template or a blank page, then add, resize, drag and configure widgets:
+**Reports** sits in the top-bar switch next to P6 · Project · 4D (Ctrl+Alt+4) and opens a Power BI-style builder. Start from a template (Planning dashboard, EPC progress report, Project status), a blank page, your own saved templates or an imported dashboard file. Then click **Customise**:
 
-- KPI tiles, cost/labour S-curve, resource histogram, activity tables (late, critical, starting soon, look-ahead), portfolio table across all projects, quantity curve, free text;
-- **EPC progress report** pieces: a key-figures table, the *Progress {data date}* banner, a weighted progress table (Cum. BL Plan %, Cum. Actual %, Variance wrt BL) with a shaded **TOTAL** row, a progress S-curve with monthly or weekly planned-vs-achieved bars, and slicer buttons by discipline, package or any activity code.
+- drag a card's title bar to move it and its corner to resize it (1–12 columns wide, half-row heights); duplicate, remove, undo and redo (Ctrl+Z / Ctrl+Y);
+- a side panel with **Data** (measure, grouping, weighting, period, decimals, prefix/suffix, green and red limits), **Look** (accent colour, card background, filled or underlined title bar, card style, text size, alignment, line or shaded area, legend, which series to show) and **Filter** (limit one widget to a discipline or code value, follow or ignore the slicers);
+- activity tables with your choice and order of columns, including any activity code, plus a default sort; readers can click headings to sort;
+- **Page & theme**: Stratum, EPC report or Executive (dark) theme, main colour, background, card style, spacing, header and subtitle with `{project}` and `{datadate}`, company logo, footer, A4 landscape or portrait for the PDF;
+- **More**: duplicate, save as template, export the dashboard as a file to share, delete.
+
+Widgets:
+
+- numbers: KPI tile, gauge (SPI, CPI, % complete against plan), key-figures table, status donut (progress status, float bands, critical share);
+- charts: cost/labour S-curve, progress S-curve with period bars, one S-curve per phase (E, P, C…), plan vs actual by discipline, resource histogram, quantity curve;
+- tables: activity table, milestone tracker (baseline vs forecast, days late, on track / at risk / late), 1–12 week look-ahead grouped by week, weighted progress table (Cum. BL Plan %, Cum. Actual %, Variance wrt BL) with a shaded **TOTAL** row, portfolio across all projects;
+- layout: section banner, text note, image or logo, slicer buttons by discipline, package or any activity code.
 
 Progress is weighted by budgeted cost, labour hours, duration or equally, and grouped by WBS level 1 or 2, any activity code or any user field. You can type your own weightage per group (e.g. General 3%, Engineering 7%, Procurement 50%, Construction 40%); the TOTAL row then uses those weights.
 
-Every dashboard prints to PDF (A4 landscape) and exports to Excel (summary, progress table, progress S-curve, late and critical, 3-week look-ahead, all activities, S-curve data, weekly resources, portfolio).
+Every dashboard prints to PDF (A4, in the orientation set on the page) and exports to Excel (summary, progress table, progress S-curve, late and critical, 3-week look-ahead, all activities, S-curve data, weekly resources, portfolio).
 
 **Email reports**: send a dashboard now, or on a daily, weekly or monthly schedule, to any To/Cc list, as PDF, Excel or both. Subjects take `{project}`, `{date}` and `{datadate}`. Mail goes out through your SMTP server (Settings → Email); each run is logged with its result. Schedules run while the desktop app is open, or around the clock on a Stratum Server.
 

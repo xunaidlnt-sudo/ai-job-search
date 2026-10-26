@@ -15,7 +15,14 @@ export type WidgetKind =
   | "pscurve" // cumulative progress % S-curve (plan / actual / forecast) with period bars
   | "info" // key figures table: label + value (computed or entered)
   | "slicer" // filter buttons for a dimension (Discipline, Package…)
-  | "banner"; // coloured section heading, e.g. "Progress 12-Oct-26"
+  | "banner" // coloured section heading, e.g. "Progress 12-Oct-26"
+  | "gauge" // dial for SPI, CPI or % complete with red/amber/green bands
+  | "milestones" // milestone tracker: baseline vs forecast, days late, status
+  | "lookahead" // 2–6 week look-ahead grouped by week
+  | "groupbars" // plan vs actual % by discipline / WBS / code
+  | "phasecurves" // one progress S-curve per discipline (E, P, C…)
+  | "donut" // status mix: progress status, float bands or critical share
+  | "image"; // logo, photo or site picture
 
 export type KpiMetric =
   | "finish"
@@ -36,14 +43,78 @@ export type KpiMetric =
 
 export type TableFilter = "critical" | "late" | "in-progress" | "starting-soon" | "finishing-soon" | "negative-float" | "all";
 
+/** Columns an activity table can show. "dim:<dimension>" shows a WBS level or activity code. */
+export type TableColumn =
+  | "code"
+  | "name"
+  | "wbs"
+  | "status"
+  | "percent"
+  | "start"
+  | "finish"
+  | "blStart"
+  | "blFinish"
+  | "actualStart"
+  | "actualFinish"
+  | "variance"
+  | "totalFloat"
+  | "origDur"
+  | "remDur"
+  | "critical"
+  | `dim:${string}`;
+
+export interface WidgetStyle {
+  /** Accent for the header bar and chart highlights. */
+  accent?: string;
+  /** Card background. */
+  background?: string;
+  /** Text colour of the body. */
+  color?: string;
+  hideTitle?: boolean;
+  /** Header look: plain text, a filled bar in the accent colour, or underlined. */
+  header?: "plain" | "filled" | "underline";
+  /** Body text size, 0.8–1.6. */
+  fontScale?: number;
+  align?: "left" | "center" | "right";
+  border?: "card" | "line" | "none";
+}
+
 export interface Widget {
   id: string;
   kind: WidgetKind;
   title: string;
-  /** Grid width in twelfths (3 = quarter, 6 = half, 12 = full). */
-  w: 3 | 4 | 6 | 8 | 12;
-  /** Height in rows: 1 small, 2 medium, 3 large. */
-  h: 1 | 2 | 3;
+  /** Grid width in twelfths, 1–12 (3 = quarter, 6 = half, 12 = full). */
+  w: number;
+  /** Height in units of about 130 px, 0.5–8 in half steps. */
+  h: number;
+  style?: WidgetStyle;
+  /** Filters on this widget only, on top of the dashboard slicers. */
+  where?: { dimension: string; values: string[] }[];
+  /** Ignore the dashboard's slicer buttons. */
+  ignoreSlicers?: boolean;
+  /** Activity table: columns in order, and sort. */
+  columns?: TableColumn[];
+  sort?: { by: TableColumn; desc?: boolean };
+  /** KPI / gauge: decimals, prefix and suffix, and the red/green limits. */
+  decimals?: number;
+  prefix?: string;
+  suffix?: string;
+  /** Value at or beyond which the tile turns green; with bad, the direction follows. */
+  good?: number;
+  bad?: number;
+  /** Charts: line or area, legend, which series to show. */
+  chart?: "line" | "area";
+  showLegend?: boolean;
+  hiddenSeries?: string[];
+  /** Look-ahead length in weeks. */
+  weeks?: number;
+  /** Donut: what to split by. */
+  split?: "status" | "float" | "critical";
+  /** Milestones: show achieved ones too. */
+  showDone?: boolean;
+  /** Image as a data URL. */
+  image?: string;
+  fit?: "contain" | "cover";
   /** Project to read; null = the dashboard's project. */
   projectId?: string | null;
   metric?: KpiMetric;
@@ -83,9 +154,32 @@ export interface Dashboard {
   widgets: Widget[];
   /** Current slicer selections, applied to every widget. */
   slices?: { dimension: string; values: string[] }[];
-  /** Visual style: "classic" (Stratum) or "report" (navy banners, ruled tables). */
-  theme?: "classic" | "report";
+  /** Visual style: "classic" (Stratum), "report" (navy banners, ruled tables) or "executive" (dark tiles). */
+  theme?: "classic" | "report" | "executive";
+  /** Page set-up: header, logo, footer, colours, spacing. */
+  page?: DashboardPage;
+  /** Listed under Templates; "New from template" copies it. */
+  isTemplate?: boolean;
   updatedAt: string;
+}
+
+export interface DashboardPage {
+  orientation?: "landscape" | "portrait";
+  /** Shown above the widgets on screen and in the PDF. Placeholders {project}, {datadate}. */
+  header?: string;
+  subtitle?: string;
+  /** Company logo as a data URL (kept small: under 300 kB). */
+  logo?: string;
+  footer?: string;
+  /** Main colour: banners, headers, chart highlight. */
+  accent?: string;
+  /** Page background behind the cards. */
+  background?: string;
+  /** Space between widgets in px. */
+  gap?: number;
+  /** Default card look for widgets without their own. */
+  border?: "card" | "line" | "none";
+  showDataDate?: boolean;
 }
 
 export type Frequency = "daily" | "weekly" | "monthly";
@@ -254,7 +348,7 @@ export function progressReportDashboard(projectId: string | null): Dashboard {
       }),
       w("kpi", "Schedule Data Date", { w: 4, metric: "dataDate" }),
       w("slicer", "Discipline", { w: 4, dimension: "wbs1" }),
-      w("banner", "Progress {datadate}", { w: 12 }),
+      w("banner", "Progress {datadate}", { w: 12, h: 0.5 }),
       w("progress", "Overall", { w: 12, h: 2, dimension: "wbs1", basis: "cost", totalLabel: "TOTAL EPC" }),
       w("pscurve", "Progress S-curve", { w: 12, h: 3, basis: "cost", step: "month" }),
     ],
@@ -283,3 +377,57 @@ export function defaultDashboard(projectId: string | null): Dashboard {
     ],
   };
 }
+
+/**
+ * Planning engineer's dashboard, built from what project controls people
+ * share as their weekly P6 dashboards: SPI/CPI gauges, milestone tracker,
+ * plan vs actual by discipline, separate E/P/C S-curves and a look-ahead.
+ */
+export function planningDashboard(projectId: string | null): Dashboard {
+  const w = (kind: WidgetKind, title: string, extra: Partial<Widget>): Widget => ({ id: uid("w"), kind, title, w: 3, h: 1, ...extra });
+  return {
+    id: uid("dash"),
+    name: "Planning dashboard",
+    projectId,
+    theme: "classic",
+    page: { header: "{project}", subtitle: "Weekly schedule update · data date {datadate}", accent: "#0b4f8a", showDataDate: true },
+    updatedAt: new Date().toISOString(),
+    slices: [],
+    widgets: [
+      w("gauge", "Schedule performance (SPI)", { metric: "spi", good: 1, bad: 0.9 }),
+      w("gauge", "Cost performance (CPI)", { metric: "cpi", good: 1, bad: 0.9 }),
+      w("gauge", "Physical progress", { metric: "percentComplete" }),
+      w("kpi", "Forecast finish", { metric: "finish" }),
+      w("slicer", "Discipline", { w: 12, h: 0.5, dimension: "wbs1" }),
+      w("groupbars", "Plan vs actual by discipline", { w: 6, h: 2, dimension: "wbs1", basis: "cost" }),
+      w("donut", "Activity status", { w: 3, h: 2, split: "status" }),
+      w("donut", "Float health", { w: 3, h: 2, split: "float" }),
+      w("phasecurves", "Progress by phase", { w: 12, h: 2, dimension: "wbs1", basis: "cost", step: "month" }),
+      w("milestones", "Milestone tracker", { w: 6, h: 2.5, limit: 12 }),
+      w("lookahead", "3-week look-ahead", { w: 6, h: 2.5, weeks: 3, limit: 30 }),
+    ],
+  };
+}
+
+/** Built-in starting points shown under "New". */
+export const BUILTIN_TEMPLATES: { id: string; name: string; hint: string; make: (projectId: string | null) => Dashboard }[] = [
+  { id: "planning", name: "Planning dashboard", hint: "Gauges, milestones, look-ahead, E/P/C curves", make: planningDashboard },
+  { id: "progress", name: "Progress report (EPC style)", hint: "Key figures, weighted progress, S-curve", make: progressReportDashboard },
+  { id: "status", name: "Project status", hint: "KPIs, S-curve, critical and late work", make: defaultDashboard },
+];
+
+/** Copy a dashboard (or template) with fresh ids. */
+export function cloneDashboard(d: Dashboard, name: string, asTemplate = false): Dashboard {
+  return {
+    ...structuredClone(d),
+    id: uid("dash"),
+    name,
+    isTemplate: asTemplate || undefined,
+    updatedAt: new Date().toISOString(),
+    widgets: d.widgets.map((w) => ({ ...structuredClone(w), id: uid("w") })),
+  };
+}
+
+/** Grid rows a widget spans (rows are 52 px + 12 px gap; h 1 = 2 rows). */
+export const widgetRows = (h: number) => Math.max(1, Math.round((Number(h) || 1) * 2));
+export const widgetCols = (w: number) => Math.min(12, Math.max(1, Math.round(Number(w) || 6)));
