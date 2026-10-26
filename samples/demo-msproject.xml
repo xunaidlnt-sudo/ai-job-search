@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Project xmlns="http://schemas.microsoft.com/project">
+  <Name>Tower.xml</Name><Title>Tower A</Title><StatusDate>2026-03-04T08:00:00</StatusDate><CalendarUID>1</CalendarUID>
+  <Calendars>
+    <Calendar><UID>1</UID><Name>Standard</Name><IsBaseCalendar>1</IsBaseCalendar>
+      <WeekDays>
+        <WeekDay><DayType>1</DayType><DayWorking>0</DayWorking></WeekDay>
+        <WeekDay><DayType>2</DayType><DayWorking>1</DayWorking><WorkingTimes><WorkingTime><FromTime>08:00:00</FromTime><ToTime>12:00:00</ToTime></WorkingTime><WorkingTime><FromTime>13:00:00</FromTime><ToTime>17:00:00</ToTime></WorkingTime></WorkingTimes></WeekDay>
+        <WeekDay><DayType>7</DayType><DayWorking>0</DayWorking></WeekDay>
+      </WeekDays>
+      <Exceptions><Exception><TimePeriod><FromDate>2026-03-10T00:00:00</FromDate><ToDate>2026-03-10T23:59:00</ToDate></TimePeriod><DayWorking>0</DayWorking></Exception></Exceptions>
+    </Calendar>
+  </Calendars>
+  <Tasks>
+    <Task><UID>0</UID><ID>0</ID><Name>Tower A</Name><OutlineNumber>0</OutlineNumber><Summary>1</Summary></Task>
+    <Task><UID>1</UID><ID>1</ID><Name>Structure</Name><WBS>1</WBS><OutlineNumber>1</OutlineNumber><Summary>1</Summary></Task>
+    <Task><UID>2</UID><ID>2</ID><Name>Columns L1</Name><OutlineNumber>1.1</OutlineNumber><Summary>0</Summary>
+      <Start>2026-03-02T08:00:00</Start><Finish>2026-03-03T17:00:00</Finish><Duration>PT16H0M0S</Duration><RemainingDuration>PT0H0M0S</RemainingDuration>
+      <ActualStart>2026-03-02T08:00:00</ActualStart><ActualFinish>2026-03-03T17:00:00</ActualFinish><PercentComplete>100</PercentComplete>
+      <Baseline><Number>0</Number><Start>2026-03-02T08:00:00</Start><Finish>2026-03-03T17:00:00</Finish></Baseline></Task>
+    <Task><UID>3</UID><ID>3</ID><Name>Slab L1</Name><OutlineNumber>1.2</OutlineNumber><Summary>0</Summary>
+      <Start>2026-03-04T08:00:00</Start><Finish>2026-03-06T17:00:00</Finish><Duration>PT24H0M0S</Duration>
+      <ConstraintType>4</ConstraintType><ConstraintDate>2026-03-04T08:00:00</ConstraintDate>
+      <PredecessorLink><PredecessorUID>2</PredecessorUID><Type>1</Type><LinkLag>4800</LinkLag></PredecessorLink></Task>
+    <Task><UID>4</UID><ID>4</ID><Name>Topped out</Name><OutlineNumber>1.3</OutlineNumber><Summary>0</Summary><Milestone>1</Milestone>
+      <Start>2026-03-06T17:00:00</Start><Finish>2026-03-06T17:00:00</Finish><Duration>PT0H0M0S</Duration>
+      <PredecessorLink><PredecessorUID>3</PredecessorUID><Type>1</Type></PredecessorLink>
+      <PredecessorLink><PredecessorUID>1</PredecessorUID><Type>1</Type></PredecessorLink></Task>
+  </Tasks>
+  <Resources><Resource><UID>0</UID></Resource><Resource><UID>1</UID><Name>Concrete gang</Name><Type>1</Type><StandardRate>45</StandardRate></Resource></Resources>
+  <Assignments><Assignment><UID>9</UID><TaskUID>3</TaskUID><ResourceUID>1</ResourceUID><Work>PT96H0M0S</Work><RemainingWork>PT96H0M0S</RemainingWork><Cost>4320</Cost></Assignment></Assignments>
+</Project>`;
+
+describe("MS Project XML import", () => {
+  const s = parseMspdi(MSP);
+
+  it("reads tasks, WBS from summaries, status and baseline", () => {
+    expect(s.projectName).toBe("Tower A");
+    expect(s.wbs.map((w) => w.name)).toEqual(["Structure"]);
+    expect(s.activities.map((a) => a.code)).toEqual(["T2", "T3", "T4"]);
+    const cols = s.activities[0];
+    expect(cols.status).toBe("complete");
+    expect(cols.originalDurationHours).toBe(16);
+    expect(cols.wbsId).toBe("w1");
+    expect(s.activities[2].type).toBe("milestone");
+  });
+
+  it("reads links with lag, constraints, calendars and resources", () => {
+    const r = s.relationships.find((x) => x.successorId === "3")!;
+    expect(r.type).toBe("FS");
+    expect(r.lagHours).toBe(8); // 4800 tenths of a minute
+    expect(s.relationships.some((x) => x.predecessorId === "1")).toBe(false); // link from a summary dropped
+    expect(s.activities[1].constraint?.type).toBe("start-on-or-after");
+    expect(s.calendars![0].week[1]).toEqual([[8, 12], [13, 17]]);
+    expect(s.calendars![0].holidays).toEqual([Date.UTC(2026, 2, 10)]);
+    expect(s.resources![0].pricePerUnit).toBe(45);
+    expect(s.assignments![0].budgetQty).toBe(96);
+  });
+
+  it("can be scheduled", () => {
+    const r = scheduleCpm(s);
+    const slab = r.schedule.activities.find((a) => a.code === "T3")!;
+    // Columns done Tue 17:00, +8h lag => Wed 17:00 start; data date Wed 08:00 => start Thu 08:00
+    expect(slab.start).toBe(Date.UTC(2026, 2, 5, 8));
+  });
+
+  it("parses ISO durations and rejects non-MSP XML", () => {
+    expect(parseMspDuration("PT7H30M0S")).toBe(7.5);
+    expect(parseMspDuration("P1DT2H")).toBe(26);
+    expect(() => parseMspdi("<foo/>")).toThrow(/Microsoft Project/);
+  });
+});
+
+describe("XER export", () => {
+  const demo = parseXer(demoXer());
+
+  it("round-trips through XER and keeps untouched tables", () => {
+    const back = parseXer(decodeXer(exportXer(demo)));
+    expect(back.activities).toHaveLength(demo.activities.length);
+    expect(back.relationships).toHaveLength(demo.relationships.length);
+    expect(back.activities.find((a) => a.code === "ST-210")!.codes.Zone).toBe("Z1");
+    expect(back.activities.find((a) => a.code === "ST-210")!.finish).toBe(demo.activities.find((a) => a.code === "ST-210")!.finish);
+  });
+
+  it("writes CPM results, new activities and new logic", () => {
+    const edited = structuredClone(demo);
+    edited.activities.push({ ...edited.activities.find((a) => a.code === "ST-310")!, id: "new-1", code: "ST-320", name: "Roof waterproofing – Zone 2", status: "not-started", actualStart: null, actualFinish: null, percentComplete: 0 });
+    edited.relationships.push({ id: "r-new", predecessorId: "1080", successorId: "new-1", type: "FS", lagHours: 0 });
+    const r = scheduleCpm(edited);
+    const tables = scheduleToXerTables(r.schedule);
+    const row = tables.TASK.find((t) => t.task_code === "ST-320")!;
+    expect(Number(row.task_id)).toBeGreaterThan(1120);
+    expect(row.late_end_date).toMatch(/^2026-/);
+    expect(tables.TASKPRED.some((p) => p.task_id === row.task_id && p.pred_task_id === "1080")).toBe(true);
+    const text = writeXer(tables);
+    expect(text.startsWith("ERMHDR")).toBe(true);
+    expect(text.trimEnd().endsWith("%E")).toBe(true);
+    const back = parseXer(decodeXer(encodeWindows1252(text)));
+    expect(back.activities.find((a) => a.code === "ST-320")!.name).toBe("Roof waterproofing – Zone 2");
+  });
+
+  it("builds a minimal XER for schedules from MS Project", () => {
+    const s = parseMspdi(MSP);
+    const back = parseXer(decodeXer(exportXer(s)));
+    expect(back.activities.map((a) => a.code)).toEqual(["T2", "T3", "T4"]);
+    expect(back.calendars![0].week[1]).toEqual([[8, 12], [13, 17]]);
+  });
+
+  it("exports CSV", () => {
+    const csv = exportCsv(demo);
+    expect(csv.split("\r\n")).toHaveLength(demo.activities.length + 1);
+    expect(csv).toContain("Level 1 Slab");
+  });

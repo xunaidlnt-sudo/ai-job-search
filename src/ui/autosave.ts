@@ -58,13 +58,33 @@ export async function clearAutosave(): Promise<void> {
 export function startAutosave(onSaved?: (at: Date) => void): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null;
   const unsub = useStore.subscribe((s, prev) => {
-    if (s.schedule === prev.schedule && s.links === prev.links && s.rules === prev.rules && s.profiles === prev.profiles) return;
+    if (
+      s.schedule === prev.schedule &&
+      s.links === prev.links &&
+      s.rules === prev.rules &&
+      s.profiles === prev.profiles &&
+      s.segments === prev.segments &&
+      s.groups === prev.groups &&
+      s.paths === prev.paths
+    )
+      return;
     if (!s.schedule) return;
     if (timer) clearTimeout(timer);
     timer = setTimeout(async () => {
       const st = useStore.getState();
       try {
-        await put(serializeProject({ modelFileName: st.modelFileName, schedule: st.schedule, links: st.links, rules: st.rules, profiles: st.profiles }));
+        await put(
+          serializeProject({
+            modelFileName: st.modelFileName,
+            schedule: st.schedule,
+            links: st.links,
+            rules: st.rules,
+            profiles: st.profiles,
+            segments: st.segments,
+            groups: st.groups,
+            paths: st.paths,
+          }),
+        );
         onSaved?.(new Date());
       } catch {
         // Quota exceeded or storage blocked: ignore, the user can still save manually.

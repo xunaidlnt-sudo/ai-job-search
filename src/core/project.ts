@@ -3,10 +3,10 @@
 // the same IFC file is loaded again.
 
 import { DEFAULT_PROFILES } from "./profiles";
-import type { AppearanceProfile, Link, LinkRule, Schedule } from "./types";
+import type { AppearanceProfile, ElementGroup, ElementSegment, Link, LinkRule, MotionPath, Schedule } from "./types";
 
 export const PROJECT_FORMAT = "stratum-project";
-export const PROJECT_VERSION = 1;
+export const PROJECT_VERSION = 2;
 
 export interface StratumProject {
   format: typeof PROJECT_FORMAT;
@@ -17,6 +17,9 @@ export interface StratumProject {
   links: Link[];
   rules: LinkRule[];
   profiles: AppearanceProfile[];
+  segments?: ElementSegment[];
+  groups?: ElementGroup[];
+  paths?: MotionPath[];
 }
 
 export function serializeProject(p: Omit<StratumProject, "format" | "version" | "savedAt">): string {
@@ -37,5 +40,8 @@ export function parseProject(text: string): StratumProject {
     links: Array.isArray(doc.links) ? doc.links : [],
     rules: Array.isArray(doc.rules) ? doc.rules : [],
     profiles: Array.isArray(doc.profiles) && doc.profiles.length ? doc.profiles : structuredClone(DEFAULT_PROFILES),
+    segments: Array.isArray(doc.segments) ? doc.segments : [],
+    groups: Array.isArray(doc.groups) ? doc.groups : [],
+    paths: Array.isArray(doc.paths) ? doc.paths : [],
   };
 }

@@ -1,5 +1,6 @@
 // 4D simulation: given a playback date, work out how every model element should look.
 
+import { growthClip, type Clip } from "./motion";
 import { STATUS_COLORS } from "./profiles";
 import type { Activity, AppearanceProfile, ColorMode, DateSource, Link, PhaseAppearance, Schedule } from "./types";
 
@@ -9,6 +10,8 @@ export interface ElementState {
   visible: boolean;
   color: string | null; // null = original model colour
   transparency: number;
+  /** Show only part of the element (directional growth). */
+  clip?: Clip | null;
 }
 
 export interface SimulationOptions {
@@ -16,9 +19,11 @@ export interface SimulationOptions {
   colorMode: ColorMode;
   /** How elements with no link are drawn. */
   unlinked: "show" | "ghost" | "hide";
+  /** Draw equipment paths in the 3D view. */
+  showPaths?: boolean;
 }
 
-export const DEFAULT_SIM_OPTIONS: SimulationOptions = { dateSource: "current", colorMode: "profile", unlinked: "ghost" };
+export const DEFAULT_SIM_OPTIONS: SimulationOptions = { dateSource: "current", colorMode: "profile", unlinked: "ghost", showPaths: true };
 
 export function activityDates(a: Activity, source: DateSource): { start: number | null; finish: number | null } {
   if (source === "baseline") return { start: a.baselineStart ?? a.start, finish: a.baselineFinish ?? a.finish };
@@ -87,6 +92,9 @@ export function computeStates(
       state = fromPhase(profile[phase]);
       if (phase === "active" && profile.progressiveFade) {
         state.transparency = state.transparency * (1 - progress);
+      }
+      if (phase === "active" && profile.growth && profile.growth !== "none") {
+        state.clip = growthClip(profile.growth, progress);
       }
     }
     const d = activityDates(act, options.dateSource);

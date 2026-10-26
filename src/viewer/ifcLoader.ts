@@ -2,6 +2,7 @@
 // group per IFC product plus the element metadata the linking engine needs.
 
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import * as WebIFC from "web-ifc";
 import type { ModelElement } from "../core/types";
 
@@ -38,8 +39,12 @@ export async function loadIfc(bytes: Uint8Array, onProgress?: (msg: string) => v
     const materials = new Map<string, THREE.MeshLambertMaterial>();
 
     onProgress?.("Reading geometry…");
+    let streamed = 0;
     ifc.StreamAllMeshes(modelID, (mesh) => {
       const group = new THREE.Group();
+      // Geometry pieces of one element, grouped by material so each element
+      // becomes one mesh per colour instead of one mesh per IFC representation.
+      const pieces = new Map<THREE.MeshLambertMaterial, THREE.BufferGeometry[]>();
       const placed = mesh.geometries;
       for (let i = 0; i < placed.size(); i++) {
         const pg = placed.get(i);
@@ -69,8 +74,16 @@ export async function loadIfc(bytes: Uint8Array, onProgress?: (msg: string) => v
           mat = new THREE.MeshLambertMaterial({ color: new THREE.Color(c.x, c.y, c.z), transparent: c.w < 1, opacity: c.w, side: THREE.DoubleSide });
           materials.set(key, mat);
         }
-        group.add(new THREE.Mesh(g, mat));
+        (pieces.get(mat) ?? pieces.set(mat, []).get(mat)!).push(g);
       }
+      for (const [mat, geoms] of pieces) {
+        const merged = geoms.length > 1 ? mergeGeometries(geoms, false) : geoms[0];
+        if (merged) {
+          if (geoms.length > 1) geoms.forEach((x) => x.dispose());
+          group.add(new THREE.Mesh(merged, mat));
+        } else geoms.forEach((x) => group.add(new THREE.Mesh(x, mat)));
+      }
+      if (++streamed % 2000 === 0) onProgress?.(`Reading geometry… ${streamed} elements`);
       const line = ifc.GetLine(modelID, mesh.expressID);
       const key = str(line?.GlobalId) || `express-${mesh.expressID}`;
       group.userData.elementId = key;

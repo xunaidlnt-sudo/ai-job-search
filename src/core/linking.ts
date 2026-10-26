@@ -10,6 +10,7 @@ export function activityFieldValue(activity: Activity, field: string, schedule: 
     return node ? node.code : null;
   }
   if (field.startsWith("code:")) return activity.codes[field.slice(5)] ?? null;
+  if (field.startsWith("user:")) return activity.userFields?.[field.slice(5)] ?? null;
   return null;
 }
 
@@ -166,6 +167,14 @@ export function activityFields(schedule: Schedule | null): { value: string; labe
   ];
   if (!schedule) return base;
   const types = new Set<string>();
-  for (const a of schedule.activities) for (const t of Object.keys(a.codes)) types.add(t);
-  return [...base, ...[...types].sort().map((t) => ({ value: `code:${t}`, label: `Activity Code: ${t}` }))];
+  const user = new Set<string>();
+  for (const a of schedule.activities) {
+    for (const t of Object.keys(a.codes)) types.add(t);
+    for (const t of Object.keys(a.userFields ?? {})) user.add(t);
+  }
+  return [
+    ...base,
+    ...[...types].sort().map((t) => ({ value: `code:${t}`, label: `Activity Code: ${t}` })),
+    ...[...user].sort().map((t) => ({ value: `user:${t}`, label: `User Field: ${t}` })),
+  ];
 }

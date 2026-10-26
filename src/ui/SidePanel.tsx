@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import { linkHealth } from "../core/health";
 import { activityFields, applyRules, elementPropertyValue, mergeLinks, propertyKeys, suggestRules, unlink, type RuleSuggestion } from "../core/linking";
+import { splitElement } from "../core/motion";
 import { cloneProfile, STATUS_COLORS } from "../core/profiles";
-import type { AppearanceProfile, LinkMatch, LinkRule, PhaseAppearance } from "../core/types";
+import type { AppearanceProfile, GrowthDirection, LinkMatch, LinkRule, PhaseAppearance } from "../core/types";
 import { fmtDate, useStore, type SideTab } from "./store";
 
 export function SidePanel() {
@@ -11,7 +12,7 @@ export function SidePanel() {
   return (
     <div className="side">
       <div className="tabs">
-        {(["selection", "rules", "profiles", "display", "check"] as SideTab[]).map((t) => (
+        {(["selection", "rules", "tools", "profiles", "display", "check"] as SideTab[]).map((t) => (
           <button key={t} className={tab === t ? "active" : ""} onClick={() => setTab(t)}>
             {t[0].toUpperCase() + t.slice(1)}
           </button>
@@ -23,6 +24,7 @@ export function SidePanel() {
         {tab === "profiles" && <ProfilesTab />}
         {tab === "display" && <DisplayTab />}
         {tab === "check" && <CheckTab />}
+        {tab === "tools" && <ToolsTab />}
       </div>
     </div>
   );
@@ -366,6 +368,18 @@ function ProfilesTab() {
             <input type="checkbox" checked={current.progressiveFade} onChange={(e) => update({ ...current, progressiveFade: e.target.checked })} />
             Fade in with task progress
           </label>
+          <label>
+            Growth during task
+            <select value={current.growth ?? "none"} onChange={(e) => update({ ...current, growth: e.target.value as GrowthDirection })}>
+              <option value="none">None (whole element)</option>
+              <option value="bottom-up">Bottom up</option>
+              <option value="top-down">Top down</option>
+              <option value="west-east">West → east</option>
+              <option value="east-west">East → west</option>
+              <option value="south-north">South → north</option>
+              <option value="north-south">North → south</option>
+            </select>
+          </label>
         </section>
       )}
     </div>
@@ -408,6 +422,13 @@ function DisplayTab() {
         ))}
       </section>
       <section>
+        <h4>Overlays</h4>
+        <label className="check">
+          <input type="checkbox" checked={sim.showPaths !== false} onChange={(e) => setSim({ showPaths: e.target.checked })} />
+          Show equipment paths
+        </label>
+      </section>
+      <section>
         <h4>Legend</h4>
         {sim.colorMode === "profile" ? (
           <ul className="legend">
@@ -432,14 +453,55 @@ function DisplayTab() {
 }
 
 function CheckTab() {
-  const { schedule, elements, links, setLinks, selectElements, selectActivity, setSideTab, setStatus, lastUpdate } = useStore();
+  const { schedule, elements, links, setLinks, selectElements, selectActivity, setSideTab, setStatus, lastUpdate, scheduleReport, setLeftTab } = useStore();
   const health = useMemo(() => (schedule ? linkHealth(schedule, elements, links) : null), [schedule, elements, links]);
   if (!schedule) return <p className="muted">Load a schedule to check links.</p>;
   const pct = (n: number) => `${Math.round(n * 100)}%`;
   const shift = (d: number | null) => (d === null ? "" : d === 0 ? "0d" : `${d > 0 ? "+" : ""}${d}d`);
 
+  const codeToId = new Map((schedule?.activities ?? []).map((a) => [a.code, a.id]));
   return (
     <div className="stack">
+      {scheduleReport && (
+        <section>
+          <h4>Last scheduling run</h4>
+          {scheduleReport.error ? (
+            <p className="bad">{scheduleReport.error}</p>
+          ) : (
+            <p>
+              Project finish <b>{fmtDate(scheduleReport.projectFinish)}</b>
+              {scheduleReport.previousFinish !== null && scheduleReport.previousFinish !== scheduleReport.projectFinish && (
+                <span className={scheduleReport.projectFinish > scheduleReport.previousFinish ? "bad" : "good"}>
+                  {" "}
+                  (was {fmtDate(scheduleReport.previousFinish)})
+                </span>
+              )}
+              <br />
+              {scheduleReport.criticalCount} critical activities · {scheduleReport.warnings.length} warning(s)
+            </p>
+          )}
+          {scheduleReport.warnings.length > 0 && (
+            <ul className="list">
+              {scheduleReport.warnings.slice(0, 60).map((w) => {
+                const code = w.split(":")[0];
+                const id = codeToId.get(code);
+                return (
+                  <li key={w}>
+                    {id ? (
+                      <button className="link" onClick={() => { selectActivity(id); setLeftTab("activity"); }}>
+                        {code}
+                      </button>
+                    ) : (
+                      code
+                    )}
+                    {w.slice(code.length)}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
       {lastUpdate && (
         <section>
           <h4>Last schedule update</h4>
@@ -546,6 +608,186 @@ function CheckTab() {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+function ToolsTab() {
+  const st = useStore();
+  const { selectedElements, selectedActivity, schedule, groups, segments, paths, pathDraft, baseElements, elements } = st;
+  const sel = [...selectedElements];
+  const [groupName, setGroupName] = useState("");
+  const [axis, setAxis] = useState<"x" | "y" | "z">("x");
+  const [parts, setParts] = useState(3);
+  const [label, setLabel] = useState("Pour");
+  const [pathName, setPathName] = useState("");
+  const [orient, setOrient] = useState(false);
+  const act = schedule?.activities.find((a) => a.id === selectedActivity);
+  const baseIds = new Set(baseElements.map((e) => e.id));
+  // Split works on whole elements; a selected segment means its parent.
+  const parentsOf = (ids: string[]) => [...new Set(ids.map((id) => (baseIds.has(id) ? id : elements.find((e) => e.id === id)?.properties.ParentGlobalId ?? id)))];
+
+  return (
+    <div className="stack">
+      <section>
+        <h4>Groups ({groups.length})</h4>
+        <p className="muted">Save a selection as a named group (a crane, a pour, a zone). Groups show up as a "Group" property for rules and selection.</p>
+        <div className="row">
+          <input placeholder="Group name" value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+          <button
+            disabled={!sel.length || !groupName.trim()}
+            onClick={() => {
+              st.setGroups([...groups, { id: crypto.randomUUID(), name: groupName.trim(), color: "#7c3aed", elementIds: sel }]);
+              st.setStatus(`Group "${groupName.trim()}" saved with ${sel.length} element(s).`);
+              setGroupName("");
+            }}
+          >
+            Save selection
+          </button>
+        </div>
+        <ul className="list">
+          {groups.map((g) => (
+            <li key={g.id}>
+              <b>{g.name}</b> ({g.elementIds.length}){" "}
+              <button className="link" onClick={() => st.selectElements(new Set(g.elementIds))}>select</button>
+              <button className="link" disabled={!sel.length} onClick={() => st.setGroups(groups.map((x) => (x.id === g.id ? { ...x, elementIds: [...new Set([...x.elementIds, ...sel])] } : x)))}>
+                add selection
+              </button>
+              <button className="link" onClick={() => st.setGroups(groups.filter((x) => x.id !== g.id))}>delete</button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h4>Split into pours / bays</h4>
+        <p className="muted">Cut the selected element(s) into equal parts along an axis. Each part can then be linked to its own activity.</p>
+        <div className="row">
+          <select value={axis} onChange={(e) => setAxis(e.target.value as "x" | "y" | "z")}>
+            <option value="x">Along X (west–east)</option>
+            <option value="z">Along Z (south–north)</option>
+            <option value="y">Along Y (height)</option>
+          </select>
+          <input type="number" min={2} max={50} value={parts} onChange={(e) => setParts(Number(e.target.value) || 2)} style={{ width: 56 }} />
+          <input value={label} onChange={(e) => setLabel(e.target.value)} style={{ width: 70 }} title="Part name" />
+        </div>
+        <div className="row">
+          <button
+            disabled={!sel.length}
+            onClick={() => {
+              const targets = parentsOf(sel);
+              const rest = segments.filter((s) => !targets.includes(s.parentId));
+              const added = targets.flatMap((id) => splitElement(id, axis, parts, label));
+              // Links on the element (or its earlier parts) move to every new part.
+              const parentOfId = (id: string) => (targets.includes(id) ? id : segments.find((x) => x.id === id && targets.includes(x.parentId))?.parentId);
+              const seen = new Set<string>();
+              const linksNext = st.links.flatMap((l) => {
+                const parent = parentOfId(l.elementId);
+                if (!parent) return [l];
+                return added
+                  .filter((x) => x.parentId === parent)
+                  .map((x) => ({ ...l, elementId: x.id }))
+                  .filter((x) => {
+                    const k = `${x.elementId}|${x.activityId}`;
+                    if (seen.has(k)) return false;
+                    seen.add(k);
+                    return true;
+                  });
+              });
+              st.setSegments([...rest, ...added]);
+              st.setLinks(linksNext);
+              st.selectElements(new Set(added.map((s) => s.id)));
+              st.setStatus(`Split ${targets.length} element(s) into ${parts} parts each. Link each part to its activity.`);
+            }}
+          >
+            Split selection
+          </button>
+          <button
+            disabled={!sel.length || !segments.some((s) => parentsOf(sel).includes(s.parentId))}
+            onClick={() => {
+              const targets = parentsOf(sel);
+              const segIds = new Set(segments.filter((s) => targets.includes(s.parentId)).map((s) => s.id));
+              // Parts' links go back to the whole element (deduplicated).
+              const seen = new Set<string>();
+              const parentOf = new Map(segments.map((x) => [x.id, x.parentId]));
+              const linksNext = st.links
+                .map((l) => (segIds.has(l.elementId) ? { ...l, elementId: parentOf.get(l.elementId)! } : l))
+                .filter((l) => {
+                  const k = `${l.elementId}|${l.activityId}`;
+                  if (seen.has(k)) return false;
+                  seen.add(k);
+                  return true;
+                });
+              st.setSegments(segments.filter((s) => !targets.includes(s.parentId)));
+              st.setLinks(linksNext);
+              st.selectElements(new Set(targets));
+            }}
+          >
+            Unsplit
+          </button>
+        </div>
+        <p className="muted">{segments.length} part(s) in the model.</p>
+      </section>
+
+      <section>
+        <h4>Equipment paths ({paths.length})</h4>
+        <p className="muted">Move the selected elements (a crane, a delivery truck) along a path while an activity runs.</p>
+        {!pathDraft ? (
+          <>
+            <p>
+              {sel.length} element(s) · activity: {act ? <b>{act.code}</b> : <span className="muted">pick one in the Gantt</span>}
+            </p>
+            <div className="row">
+              <input placeholder="Path name" value={pathName} onChange={(e) => setPathName(e.target.value)} />
+            </div>
+            <label className="check">
+              <input type="checkbox" checked={orient} onChange={(e) => setOrient(e.target.checked)} /> Turn to face direction of travel
+            </label>
+            <button className="primary" disabled={!sel.length || !act} onClick={() => st.setPathDraft([])}>
+              Draw path in 3D
+            </button>
+          </>
+        ) : (
+          <>
+            <p>
+              Click points in the 3D view: <b>{pathDraft.length}</b> placed.
+            </p>
+            <div className="row">
+              <button
+                className="primary"
+                disabled={pathDraft.length < 2}
+                onClick={() => {
+                  st.setPaths([
+                    ...paths,
+                    { id: crypto.randomUUID(), name: pathName.trim() || `Path ${paths.length + 1}`, activityId: act!.id, elementIds: sel, points: pathDraft, orient },
+                  ]);
+                  st.setPathDraft(null);
+                  setPathName("");
+                  st.setStatus("Path saved. Play the timeline to see it move.");
+                }}
+              >
+                Finish
+              </button>
+              <button disabled={!pathDraft.length} onClick={() => st.setPathDraft(pathDraft.slice(0, -1))}>
+                Undo point
+              </button>
+              <button onClick={() => st.setPathDraft(null)}>Cancel</button>
+            </div>
+          </>
+        )}
+        <ul className="list">
+          {paths.map((p) => {
+            const a = schedule?.activities.find((x) => x.id === p.activityId);
+            return (
+              <li key={p.id}>
+                <b>{p.name}</b> · {a?.code ?? "?"} · {p.elementIds.length} element(s), {p.points.length} points{" "}
+                <button className="link" onClick={() => st.selectElements(new Set(p.elementIds))}>select</button>
+                <button className="link" onClick={() => st.setPaths(paths.filter((x) => x.id !== p.id))}>delete</button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
     </div>
   );
 }

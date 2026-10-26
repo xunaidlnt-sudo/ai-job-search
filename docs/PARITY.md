@@ -14,40 +14,42 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 
 | Feature (public description) | Source | Stratum | Notes |
 |---|---|---|---|
-| Link 3D model elements to schedule tasks | [1] | **Done** | Manual linking from a 3D selection, plus rule-based auto-linking |
-| Play the 4D sequence; scrub by date | [2] | **Done** | Play/pause, step day/week, speed 1–60 days/s, slider |
+| Link 3D model elements to schedule tasks | [1] | **Done** | Manual linking from a 3D selection, rule-based auto-linking, auto-detect of the property that holds activity IDs |
+| Play the 4D sequence; scrub by date | [2] | **Done** | Play/pause, step day/week, speed 1–60 days/s, slider, keyboard |
 | Appearance profiles: Install, Remove, Temporary, Maintain, Neutral | [3] | **Done** | Before/during/after: visibility, colour, transparency. Editable, duplicable |
 | Custom appearance profiles and colour legend | [3] | **Done** | Profiles tab; legend in Display tab |
-| Growth simulation (element appears progressively during the task) | [3] | **Partial** | Progressive fade by task %. Directional growth (bottom-up, along an axis) planned for Phase 2 |
-| Export 4D sequence as video | [2] | **Done** | WebM from the viewport. MP4 and camera paths in Phase 2 |
+| Growth simulation (element appears progressively during the task) | [3] | **Done** | Bottom-up, top-down, west→east, east→west, south→north, north→south; also progressive fade |
+| Export 4D sequence as video | [2] | **Done** | WebM from the viewport. MP4 and scripted camera paths planned |
 | Snapshots / images | [2] | **Done** | PNG export |
-| Define work areas / zones | [1] | **Partial** | Zones can drive linking via activity codes and IFC properties. Drawn 3D work-area volumes: Phase 2 |
-| Break design models into constructible components | [1] | **Planned (Phase 3)** | Split slabs/walls into pours and bays |
-| 3D paths for moving resources (cranes, equipment) over time | [4] | **Planned (Phase 2)** | Keyframed paths along a task's duration |
-| Resource groups | [5] | **Planned (Phase 2)** | |
-| User fields on tasks/resources | [5] | **Planned (Phase 2)** | |
-| Baseline vs current comparison | [6] | **Done** | Simulate either date set. Status colouring flags late work against baseline |
+| Define work areas / zones | [1] | **Partial** | Element groups and zone codes drive linking; drawn 3D work-area volumes planned |
+| Break design models into constructible components | [1] | **Done** | Split elements into equal pours/bays along X, Y or Z; each part links to its own activity. Uneven cut positions planned |
+| 3D paths for moving resources (cranes, equipment) over time | [4] | **Done** | Draw a path in 3D, attach elements and an activity; optional heading follow |
+| Resource groups | [5] | **Done** | Named element groups; exposed as a "Group" property for rules and selection |
+| User fields on tasks/resources | [5] | **Done** (tasks) | P6 UDFs imported; add/edit in the Activity tab; usable in link rules. Resource user fields planned |
+| Baseline vs current comparison | [6] | **Done** | Simulate either date set; status colouring flags late work; baseline bars in the Gantt |
 
 ## Scheduling
 
 | Feature | Source | Stratum | Notes |
 |---|---|---|---|
-| Import Primavera P6 schedules | [1] | **Done** | XER: projects, WBS, activities, relationships, activity codes, actuals, baseline (target) dates, float, driving path |
-| Import Microsoft Project / Asta | [1] | **Planned (Phase 2)** | MSPDI XML first |
-| Gantt chart with WBS | [1] | **Done** | Collapsible WBS, baseline bars, progress, critical, data date, zoom |
-| Model-based scheduling (create and edit tasks in the tool) | [1] | **Planned (Phase 3)** | Needs Stratum's own CPM engine |
-| CPM scheduling engine (logic, calendars, constraints, float) | [1] | **Planned (Phase 3)** | Built from first principles; P6 dates used until then |
-| Export schedule back to P6 | — | **Planned (Phase 3)** | XER/XML write-back of updated progress |
+| Import Primavera P6 schedules | [1] | **Done** | XER: projects, WBS, activities, logic, activity codes, UDFs, calendars, constraints, actuals, baseline, resources, costs |
+| Import Microsoft Project | [1] | **Done** | MSPDI XML: tasks, summaries → WBS, links with lag, constraints, calendars and exceptions, baseline, resources, assignments |
+| Import Asta Powerproject | [1] | **Planned** | |
+| Gantt chart with WBS | [1] | **Done** | Collapsible WBS, baseline bars, progress, critical, total float, data date, zoom |
+| Model-based scheduling (create and edit tasks in the tool) | [1] | **Done** | Add/delete activities; edit durations, logic, constraints, progress, calendars, resources |
+| CPM scheduling engine (logic, calendars, constraints, float) | [1] | **Done** | FS/SS/FF/SF with lags on working calendars, holidays, 9 constraint types, retained logic from the data date, total and free float, LOE and WBS summaries, loop detection |
+| Resource levelling | — | **Planned** | |
+| Export schedule back to P6 | — | **Done** | XER update keeps every untouched table; also CSV. Verify with P6's import preview |
 
 ## Resources, cost and progress
 
 | Feature | Source | Stratum | Notes |
 |---|---|---|---|
-| Resource-loaded schedules (labour, material, equipment) | [6] | **Planned (Phase 4)** | Import P6 TASKRSRC first |
-| Track resource status and actual resource usage | [2] | **Planned (Phase 4)** | |
-| Assign resource costs; track actual cost | [2] | **Planned (Phase 4)** | |
-| Earned value graph; cost roll-up by WBS | [2] | **Planned (Phase 4)** | PV/EV/AC, SPI/CPI, S-curves |
-| Quantity tracking plots | [6] | **Planned (Phase 4)** | Quantities from IFC quantity sets (already read on import) |
+| Resource-loaded schedules (labour, material, equipment) | [6] | **Done** | Imported from P6/MS Project or assigned in Stratum |
+| Track resource status and actual resource usage | [2] | **Done** | Weekly histogram, actual to date then remaining, or baseline |
+| Assign resource costs; track actual cost | [2] | **Done** | Rates × quantities; budget, actual, remaining |
+| Earned value graph; cost roll-up by WBS | [2] | **Done** | PV/EV/AC/forecast S-curves; SPI, CPI, EAC, VAC, TCPI; WBS table; cost or labour hours |
+| Quantity tracking plots | [6] | **Done** | Any numeric IFC quantity or count; installed by date; current vs baseline curve; by type or activity |
 | Earned value KPIs and reports from field data | [7] | **Planned (Phase 5)** | |
 
 ## Collaboration and field
@@ -63,8 +65,9 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 |---|---|
 | Web app | **Done** |
 | Desktop app (Windows/macOS/Linux) | **Done**: Electron app; Windows NSIS installer, macOS DMG, Linux AppImage/deb; opens .xer/.ifc from Explorer/Finder. Unsigned until certificates are bought |
-| Project file | **Done**: `.stratum.json` (schedule, links, rules, profiles). Links re-match the model by IFC GlobalId |
+| Project file | **Done**: `.stratum.json` (schedule, links, rules, profiles, groups, parts, paths). Links re-match the model by IFC GlobalId |
 | IFC model import | **Done**: IFC2x3 / IFC4 via web-ifc; properties, quantities and storeys are read for linking |
+| Large models | **Partial**: one merged mesh per element and colour; only changed elements repaint during playback (50k-element state update under 0.5 s in tests). GPU instancing and level-of-detail planned |
 
 ## User feedback
 
@@ -77,7 +80,7 @@ Public reviews of SYNCHRO and write-ups on 4D practice point to recurring pain p
 | Linking is heavy manual work | [11] | **Done**: auto-detect rules from model properties |
 | Steep learning curve; features hard to find from menus | [9], [10] | **Done**: getting-started guide, keyboard shortcuts. More in-context help planned |
 | Crashes and startup failures | [12] | **Done**: autosave and restore. Running in the browser avoids installs and antivirus conflicts |
-| Struggles with large models | [10] | **Planned (Phase 2)**: instanced/merged rendering, level-of-detail |
+| Struggles with large models | [10] | **Partial**: merged geometry per element and change-only repainting; instancing and level-of-detail planned |
 | Expensive for small firms | [9] | Pricing decision, outside the code |
 
 Reviews are a mix of verified, trial and incentivised users; treat them as signals, not measurements.

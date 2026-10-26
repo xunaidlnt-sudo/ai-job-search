@@ -19,7 +19,7 @@ describe("XER parser", () => {
   });
 
   it("reads activities with types, status and dates", () => {
-    expect(schedule.activities).toHaveLength(13);
+    expect(schedule.activities).toHaveLength(14);
     const slab = schedule.activities.find((a) => a.code === "ST-210")!;
     expect(slab.status).toBe("in-progress");
     expect(slab.percentComplete).toBe(70);
@@ -85,7 +85,7 @@ describe("linking", () => {
     const links = applyRules([{ ...DEMO_LINK_RULE, profileId: "install" }], elements, schedule);
     expect(links).toHaveLength(elements.length);
     const byAct = new Set(links.map((l) => l.activityId));
-    expect(byAct.size).toBe(11); // every non-milestone activity has geometry
+    expect(byAct.size).toBe(12); // every non-milestone activity has geometry
   });
 
   it("supports contains/startsWith and activity codes", () => {
@@ -197,7 +197,7 @@ describe("gantt rows and project file", () => {
   it("round-trips a project file", () => {
     const text = serializeProject({ modelFileName: "a.ifc", schedule, links: [], rules: [], profiles: DEFAULT_PROFILES });
     const p = parseProject(text);
-    expect(p.schedule!.activities).toHaveLength(13);
+    expect(p.schedule!.activities).toHaveLength(14);
     expect(p.profiles).toHaveLength(5);
     expect(() => parseProject('{"format":"x"}')).toThrow();
   });

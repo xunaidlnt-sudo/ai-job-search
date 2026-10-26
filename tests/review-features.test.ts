@@ -63,12 +63,12 @@ describe("link health", () => {
     const h = linkHealth(base, elements, links);
     expect(h.unlinkedActivities.map((a) => a.code)).not.toContain("SW-110");
     expect(h.unlinkedActivities.map((a) => a.code)).not.toContain("MS-000"); // milestones are not expected to have geometry
-    expect(h.unlinkedActivities.length).toBe(11 - 3);
+    expect(h.unlinkedActivities.length).toBe(12 - 3);
     expect(h.unlinkedElements).toHaveLength(elements.length - 2);
     expect(h.orphanElementLinks).toHaveLength(1);
     expect(h.orphanActivityLinks).toHaveLength(1);
     expect(h.duplicateInstalls).toHaveLength(1);
-    expect(h.coverage.activities).toBeCloseTo(3 / 11);
+    expect(h.coverage.activities).toBeCloseTo(3 / 12);
   });
 });
 
@@ -78,7 +78,7 @@ describe("rule suggestions", () => {
     expect(best.elementProperty).toBe("Pset_Stratum.ActivityID");
     expect(best.activityField).toBe("code");
     expect(best.elementMatches).toBe(elements.length);
-    expect(best.activityMatches).toBe(11);
+    expect(best.activityMatches).toBe(12);
   });
 
   it("returns nothing when no property matches", () => {

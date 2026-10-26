@@ -4,7 +4,7 @@ import { buildGanttRows, type GanttRow } from "../core/wbs";
 import { DAY, fmtDate, useStore } from "./store";
 
 const ROW = 24;
-const COLS = 430; // width of the table columns left of the bars
+const COLS = 466; // width of the table columns left of the bars
 
 export function Gantt() {
   const schedule = useStore((s) => s.schedule);
@@ -50,6 +50,7 @@ export function Gantt() {
   }, [links]);
 
   const range = useMemo(() => (schedule ? scheduleRange(schedule, sim.dateSource) : null), [schedule, sim.dateSource]);
+  const hpd = schedule?.calendars?.find((c) => c.id === schedule.defaultCalendarId)?.hoursPerDay ?? 8;
 
   if (!schedule || !range) return <div className="empty">No schedule loaded.</div>;
 
@@ -96,6 +97,7 @@ export function Gantt() {
               <span style={{ width: 64 }}>Start</span>
               <span style={{ width: 64 }}>Finish</span>
               <span style={{ width: 32 }}>%</span>
+              <span style={{ width: 36 }} title="Total float (days)">TF</span>
               <span style={{ width: 28 }} title="Linked elements">🔗</span>
             </div>
             <div className="gantt-scale">
@@ -142,6 +144,9 @@ export function Gantt() {
                   <span style={{ width: 64 }}>{fmtDate(d.start)}</span>
                   <span style={{ width: 64 }}>{fmtDate(d.finish)}</span>
                   <span style={{ width: 32 }}>{Math.round(a.percentComplete)}</span>
+                  <span style={{ width: 36 }} className={a.totalFloatHours !== null && a.totalFloatHours < 0 ? "bad" : ""}>
+                    {a.totalFloatHours === null ? "" : Math.round((a.totalFloatHours / hpd) * 10) / 10}
+                  </span>
                   <span style={{ width: 28 }}>{linkCount.get(a.id) ?? ""}</span>
                 </div>
                 {a.baselineStart !== null && a.baselineFinish !== null && (

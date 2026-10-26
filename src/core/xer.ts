@@ -4,7 +4,21 @@
 // one "%F" line of field names and any number of "%R" rows. "%E" ends the file.
 // The format is documented by Oracle and widely used for P6 data exchange.
 
-import type { Activity, ActivityStatus, ActivityType, Relationship, RelationshipType, Schedule, WbsNode } from "./types";
+import { parseP6CalendarData, standardCalendar } from "./calendar";
+import type {
+  Activity,
+  ActivityStatus,
+  ActivityType,
+  Assignment,
+  Calendar,
+  ConstraintType,
+  Relationship,
+  RelationshipType,
+  Resource,
+  ResourceType,
+  Schedule,
+  WbsNode,
+} from "./types";
 
 export type XerTables = Record<string, Record<string, string>[]>;
 
@@ -33,16 +47,39 @@ export function parseXerTables(text: string): XerTables {
   return tables;
 }
 
-/** Decode XER bytes. P6 usually writes Windows-1252; fall back to UTF-8 when a BOM says so. */
-export function decodeXer(bytes: Uint8Array): string {
-  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) {
-    return new TextDecoder("utf-8").decode(bytes.subarray(3));
-  }
+/** Windows-1252 code points 0x80-0x9F (the rest of the range matches Latin-1). */
+export const CP1252_HIGH: Record<number, number> = {
+  0x80: 0x20ac, 0x82: 0x201a, 0x83: 0x0192, 0x84: 0x201e, 0x85: 0x2026, 0x86: 0x2020, 0x87: 0x2021, 0x88: 0x02c6, 0x89: 0x2030,
+  0x8a: 0x0160, 0x8b: 0x2039, 0x8c: 0x0152, 0x8e: 0x017d, 0x91: 0x2018, 0x92: 0x2019, 0x93: 0x201c, 0x94: 0x201d, 0x95: 0x2022,
+  0x96: 0x2013, 0x97: 0x2014, 0x98: 0x02dc, 0x99: 0x2122, 0x9a: 0x0161, 0x9b: 0x203a, 0x9c: 0x0153, 0x9e: 0x017e, 0x9f: 0x0178,
+};
+
+function looksUtf8(bytes: Uint8Array): boolean {
   try {
-    return new TextDecoder("windows-1252").decode(bytes);
+    new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    // Pure ASCII is valid UTF-8 too; only call it UTF-8 if it has multi-byte sequences.
+    return bytes.some((b) => b >= 0x80);
   } catch {
-    return new TextDecoder("utf-8").decode(bytes);
+    return false;
   }
+}
+
+/**
+ * Decode XER bytes. P6 normally writes Windows-1252; newer versions can write
+ * UTF-8. Decoded by hand so the result is the same in every runtime.
+ */
+export function decodeXer(bytes: Uint8Array): string {
+  if (bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf) return new TextDecoder("utf-8").decode(bytes.subarray(3));
+  if (looksUtf8(bytes)) return new TextDecoder("utf-8").decode(bytes);
+  let out = "";
+  const CHUNK = 8192;
+  for (let i = 0; i < bytes.length; i += CHUNK) {
+    const part = bytes.subarray(i, i + CHUNK);
+    const codes = new Array<number>(part.length);
+    for (let k = 0; k < part.length; k++) codes[k] = CP1252_HIGH[part[k]] ?? part[k];
+    out += String.fromCharCode(...codes);
+  }
+  return out;
 }
 
 /** P6 dates look like "2024-03-18 08:00". They have no zone; we read them as UTC wall time. */
@@ -75,6 +112,20 @@ const STATUS_MAP: Record<string, ActivityStatus> = {
 };
 
 const REL_MAP: Record<string, RelationshipType> = { PR_FS: "FS", PR_SS: "SS", PR_FF: "FF", PR_SF: "SF" };
+
+export const CONSTRAINT_MAP: Record<string, ConstraintType> = {
+  CS_MSOA: "start-on-or-after",
+  CS_MSOB: "start-on-or-before",
+  CS_MEOA: "finish-on-or-after",
+  CS_MEOB: "finish-on-or-before",
+  CS_MSO: "start-on",
+  CS_MEO: "finish-on",
+  CS_MANDSTART: "mandatory-start",
+  CS_MANDFIN: "mandatory-finish",
+  CS_ALAP: "as-late-as-possible",
+};
+
+const RSRC_TYPE: Record<string, ResourceType> = { RT_Labor: "labor", RT_Equip: "equipment", RT_Mat: "material" };
 
 export interface XerImportOptions {
   /** Pick a project when the XER holds several. Defaults to the first one. */
@@ -165,6 +216,71 @@ export function xerToSchedule(tables: XerTables, options: XerImportOptions = {})
       };
     });
 
+  // P6 user-defined fields on activities.
+  const udfLabel = new Map<string, string>();
+  for (const u of tables.UDFTYPE ?? []) if (u.table_name === "TASK") udfLabel.set(u.udf_type_id, u.udf_type_label || u.udf_type_name);
+  const udfs = new Map<string, Record<string, string>>();
+  for (const v of tables.UDFVALUE ?? []) {
+    const label = udfLabel.get(v.udf_type_id);
+    if (!label) continue;
+    const value = v.udf_text || v.udf_number || (v.udf_date ? v.udf_date.slice(0, 10) : "") || v.udf_code_id || "";
+    if (!value) continue;
+    const rec = udfs.get(v.fk_id) ?? {};
+    rec[label] = value;
+    udfs.set(v.fk_id, rec);
+  }
+  const taskRows = new Map((tables.TASK ?? []).map((t) => [t.task_id, t]));
+  for (const a of activities) {
+    const t = taskRows.get(a.id)!;
+    const ct = CONSTRAINT_MAP[t.cstr_type];
+    a.constraint = ct ? { type: ct, date: parseXerDate(t.cstr_date) } : null;
+    const u = udfs.get(a.id);
+    if (u) a.userFields = u;
+  }
+
+  // Calendars: global ones plus this project's.
+  const calendars: Calendar[] = (tables.CALENDAR ?? [])
+    .filter((c) => !c.proj_id || c.proj_id === projId || c.clndr_type !== "CA_Project")
+    .map((c) => {
+      try {
+        return parseP6CalendarData(c.clndr_id, c.clndr_name || c.clndr_id, c.clndr_data ?? "", num(c.day_hr_cnt) ?? 8);
+      } catch {
+        return standardCalendar(c.clndr_id, c.clndr_name || c.clndr_id);
+      }
+    });
+  const defaultCal =
+    (tables.CALENDAR ?? []).find((c) => c.clndr_id === project.clndr_id)?.clndr_id ??
+    (tables.CALENDAR ?? []).find((c) => c.default_flag === "Y")?.clndr_id ??
+    calendars[0]?.id ??
+    null;
+
+  // Resources and their assignments.
+  const price = new Map<string, number>();
+  for (const r of tables.RSRCRATE ?? []) if (!price.has(r.rsrc_id)) price.set(r.rsrc_id, num(r.cost_per_qty) ?? 0);
+  const unitName = new Map((tables.UMEASURE ?? []).map((u) => [u.unit_id, u.unit_abbrev || u.unit_name]));
+  const resources: Resource[] = (tables.RSRC ?? []).map((r) => ({
+    id: r.rsrc_id,
+    code: r.rsrc_short_name || r.rsrc_id,
+    name: r.rsrc_name || r.rsrc_short_name || r.rsrc_id,
+    type: RSRC_TYPE[r.rsrc_type] ?? "labor",
+    unit: unitName.get(r.unit_id) || (RSRC_TYPE[r.rsrc_type] === "material" ? "unit" : "h"),
+    pricePerUnit: price.get(r.rsrc_id) ?? num(r.cost_qty_type) ?? 0,
+  }));
+  const actIds = new Set(activities.map((a) => a.id));
+  const assignments: Assignment[] = (tables.TASKRSRC ?? [])
+    .filter((x) => actIds.has(x.task_id))
+    .map((x) => ({
+      id: x.taskrsrc_id,
+      activityId: x.task_id,
+      resourceId: x.rsrc_id,
+      budgetQty: num(x.target_qty) ?? 0,
+      actualQty: (num(x.act_reg_qty) ?? 0) + (num(x.act_ot_qty) ?? 0),
+      remainingQty: num(x.remain_qty) ?? 0,
+      budgetCost: num(x.target_cost) ?? 0,
+      actualCost: (num(x.act_reg_cost) ?? 0) + (num(x.act_ot_cost) ?? 0),
+      remainingCost: num(x.remain_cost) ?? 0,
+    }));
+
   const ids = new Set(activities.map((a) => a.id));
   const relationships: Relationship[] = (tables.TASKPRED ?? [])
     .filter((r) => ids.has(r.task_id) && ids.has(r.pred_task_id))
@@ -184,6 +300,12 @@ export function xerToSchedule(tables: XerTables, options: XerImportOptions = {})
     activities,
     wbs,
     relationships,
+    calendars,
+    defaultCalendarId: defaultCal,
+    resources,
+    assignments,
+    sourceXer: tables,
+    sourceFormat: "xer",
   };
 }
 

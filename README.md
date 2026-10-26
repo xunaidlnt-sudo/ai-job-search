@@ -4,17 +4,29 @@
 
 Stratum links a Primavera P6 schedule to an IFC building model and plays back the construction sequence over time. It runs in the browser; a desktop build is planned.
 
-Phase 1 (this release) covers the core 4D workflow:
+Release 0.2 covers phases 1 to 4 of the roadmap:
 
-- **P6 XER import**: projects, WBS, activities, relationships, activity codes, actual dates, baseline (target) dates, % complete, total float and driving path. Multi-project XER files prompt for which project to load.
-- **IFC import** (IFC2x3/IFC4 via web-ifc): geometry plus name, type, GlobalId, storey, property sets and quantity sets for every element.
-- **Linking**: select elements in 3D (click, Shift/Ctrl-click, or select by any property value) and link them to the activity picked in the Gantt. Or write rules such as *`Pset.ActivityID` equals Activity ID* or *`Storey` equals Activity Code: Zone* and run them across the model.
-- **Appearance profiles**: Install, Remove, Temporary, Maintain and Neutral, each with its own before / during / after visibility, colour and transparency. Profiles can be edited, duplicated and added.
-- **4D playback**: play/pause, step by day or week, speed control, timeline slider, jump to data date. Space bar toggles playback.
-- **Two simulation modes**: current schedule (actuals plus forecast) or baseline dates, coloured by profile or by status against baseline (not started / in progress / complete / late / critical).
-- **Gantt**: collapsible WBS with rolled-up dates, baseline bars, progress, critical activities, milestones, data-date and playback lines, filter, zoom.
-- **Output**: PNG snapshots and WebM video of the full sequence.
-- **Project file**: `.stratum.json` holds the schedule, links, rules and profiles. Re-opening it with the same IFC re-matches links by GlobalId.
+**4D**
+- **Schedules**: Primavera P6 XER (activities, WBS, logic, codes, UDFs, calendars, constraints, actuals, baseline, resources and costs) and Microsoft Project XML.
+- **Models**: IFC2x3/IFC4 via web-ifc, with name, type, GlobalId, storey, property sets and quantity sets per element.
+- **Linking**: select in 3D and link, or rules such as *`Pset.ActivityID` equals Activity ID*; auto-detect finds the property that already holds activity IDs.
+- **Appearance profiles**: Install, Remove, Temporary, Maintain, Neutral, plus your own; directional growth (bottom-up, west→east…) so slabs pour and walls rise.
+- **Pours and bays**: split any element into parts along an axis and link each part to its own activity.
+- **Equipment paths**: draw a path in 3D and a crane or truck moves along it during its activity.
+- **Groups**: save selections as named groups for selection and rules.
+- **Playback**: play, step, speed, data date, current vs baseline dates, colour by status (late work in red).
+
+**Planning**
+- **CPM scheduler (F9)**: FS/SS/FF/SF with lags on working calendars and holidays, nine constraint types, retained logic from the data date, total and free float, critical path, LOE/WBS summaries, loop detection, open-end warnings.
+- **Activity editor**: add or delete activities; edit durations, status and actual dates, logic, constraints, calendars, user fields and resource assignments.
+- **Export**: P6 XER that updates the original project (untouched tables pass straight through), or CSV for Excel.
+
+**Cost, resources, quantities**
+- **Earned value**: BAC, PV, EV, AC, SPI, CPI, EAC, VAC, TCPI; S-curves for planned, earned, actual and forecast; WBS roll-up; in cost or labour hours.
+- **Resource histograms**: weekly usage per resource, actual-then-remaining or baseline.
+- **Quantities**: any numeric IFC quantity (e.g. NetVolume) or element count, installed by the playback date, current vs baseline curve, by IFC type or activity.
+
+**Output**: PNG snapshots, WebM video, `.stratum.json` project files, autosave.
 
 Added after reading user reviews of existing 4D tools (see [docs/PARITY.md](docs/PARITY.md#user-feedback)):
 
@@ -24,7 +36,7 @@ Added after reading user reviews of existing 4D tools (see [docs/PARITY.md](docs
 - **Autosave and restore**: work is saved in the browser every few seconds; after a crash or closed tab Stratum offers to restore it.
 - **Getting-started guide and shortcuts**: press `?`. Space plays, arrows step a day (Shift for a week), Home/End jump.
 
-A built-in demo (two-storey RC frame with a 13-activity P6 schedule) shows the whole workflow without any files. Click **Load demo**.
+A built-in demo (two-storey RC frame, 14-activity resource-loaded P6 schedule, a mobile crane on a path) shows the whole workflow without any files. Click **Load demo**. `samples/` has the demo as an XER and a small MS Project XML.
 
 Planned work and how Stratum compares with SYNCHRO 4D Pro's public feature set are in [docs/PARITY.md](docs/PARITY.md). Development follows [docs/CLEAN_ROOM.md](docs/CLEAN_ROOM.md).
 
@@ -72,12 +84,13 @@ tests/         vitest unit tests
 docs/          parity tracker and clean-room policy
 ```
 
-## Known limits in Phase 1
+## Known limits
 
-- Schedule dates come from P6 as exported; Stratum does not reschedule yet (its own CPM engine is Phase 3).
-- Large IFC files (hundreds of MB) load slowly because each element is drawn as its own mesh. Instanced/merged rendering is on the Phase 2 list.
+- The CPM engine follows P6's default options (retained logic, finish float, predecessor-calendar lags). Progress override, resource levelling and multiple float paths are not implemented yet.
+- Costs and quantities are spread linearly over each activity's elapsed time, so weekly figures can differ slightly from P6's calendar-weighted spread.
+- XER export has been checked by re-importing into Stratum, not yet in a live P6 database: use P6's import preview the first time.
+- Very large IFC files (hundreds of MB) still load slowly; GPU instancing and level-of-detail are planned.
 - Video export is WebM only (browser MediaRecorder).
-- Growth simulation is a progressive fade, not directional build-up.
 
 ## Licence
 
