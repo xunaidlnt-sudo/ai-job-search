@@ -70,7 +70,7 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 | IFC model import | **Done**: IFC2x3 / IFC4 via web-ifc; properties, quantities and storeys are read for linking |
 | Project database | **Done**: local SQLite (desktop), IndexedDB (browser) or PostgreSQL on Stratum Server; Docker Compose for the server |
 | Primavera P6 connection | **Done**: P6 EPPM REST (read, and write-back of progress); P6 Professional database on SQL Server, Oracle or SQLite (read-only) |
-| Interface modes | **Done**: P6-style, MS Project-style and 4D-style layouts and wording over the same engine, chosen at first start and switchable in Settings |
+| Interface modes | **Done**: P6 layout (menu bar, Directory and Command bars, Classic Schedule Layout, Activity Details tabs, usage profiles) and MS Project layout (ribbon, Timeline, Gantt Chart, Task Form, Tracking Gantt, Resource Usage), both schedule-only; 4D layout with the model. Chosen at first start, switched from the top bar or Settings |
 | Reports and dashboards | **Done**: widget builder, templates, slicers, PDF, Excel, SMTP email on daily/weekly/monthly schedules with run log |
 | Large models | **Partial**: one merged mesh per element and colour; only changed elements repaint during playback (50k-element state update under 0.5 s in tests). GPU instancing and level-of-detail planned |
 

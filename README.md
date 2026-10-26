@@ -44,13 +44,13 @@ Two sample projects show the whole workflow without any files:
 
 Load either from the empty workspace or the File menu. `samples/` has the RC demo as an XER and a small MS Project XML.
 
-**User guide:** [docs/Stratum-4D-User-Guide.pdf](docs/Stratum-4D-User-Guide.pdf) (42 pages, with screenshots, worked through the GIS substation example).
+**User guide:** [docs/Stratum-4D-User-Guide.pdf](docs/Stratum-4D-User-Guide.pdf) (with screenshots, worked through the GIS substation example; written and credited to Junaid Quamar).
 
 Planned work and how Stratum compares with SYNCHRO 4D Pro's public feature set are in [docs/PARITY.md](docs/PARITY.md). Development follows [docs/CLEAN_ROOM.md](docs/CLEAN_ROOM.md).
 
 ## Interface modes
 
-The first time Stratum starts, a short setup asks which layout you want. The engine, the data and every feature are the same in all three; only the layout, the wording and the default columns change. Switch at any time in **⚙ Settings → Interface**.
+The first time Stratum starts, a short setup asks which layout you want. All three share the same engine and data. The P6 and MS Project layouts are schedule-only and laid out like the originals; the 3D model, linking and playback live in the 4D layout. Switch at any time from the top bar or in **Settings → Interface**.
 
 | Mode | Layout | Wording |
 |---|---|---|
@@ -58,7 +58,7 @@ The first time Stratum starts, a short setup asks which layout you want. The eng
 | **MS Project style** | Laid out like Microsoft Project's Gantt Chart view, schedule only (no 3D): green title bar, ribbon (File, Task, Resource, Report, Project, View) with groups, Timeline, Gantt Chart with row numbers, indicators, task mode, predecessors and resource names, optional Task Form, Tracking Gantt and Resource Usage views, status bar with zoom | ID, Task Name, Duration ("15 days"), Start ("Mon 05/10/26"), Status Date, Calculate Project |
 | **4D style** | 3D model in the middle, Gantt on the left, linking tools on the right, timeline along the bottom | Task ID, Focus date, Reschedule |
 
-**Switching and appearance.** The layout switch in the top bar (P6 · Project · 4D) changes mode instantly; `Ctrl+Alt+1/2/3` does the same. Each layout has its own look: P6 a navy title bar with green remaining and blue actual bars, MS Project a green ribbon with large buttons and light-blue task bars, 4D a graphite dark theme with the Stratum orange. The sun/moon button flips light and dark; **Settings → Interface** also has font, text size and density.
+**Switching and appearance.** The layout switch at the top right (P6 · Project · 4D) changes layout instantly; `Ctrl+Alt+1/2/3` does the same. The open project, selection and filters stay as they are. P6 uses light Windows-style chrome with blue actual, green remaining and red critical bars; MS Project a green title bar and ribbon with blue task bars and black summary brackets; 4D a graphite dark theme with the Stratum orange. The sun/moon button flips light and dark; **Settings → Interface** also has font, text size and density.
 
 Fonts are bundled, so the desktop app looks the same offline. The default, **Stratum Sans**, is [Inter](https://rsms.me/inter/) set with its own stylistic alternates (single-storey a, open digits, tailed l). IBM Plex Sans, Source Sans 3, Nunito Sans and JetBrains Mono are also included, plus the system font. All are under the SIL Open Font License 1.1.
 
