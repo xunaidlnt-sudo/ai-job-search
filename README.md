@@ -48,7 +48,7 @@ The first time Stratum starts, a short setup asks which layout you want. The eng
 
 | Mode | Layout | Wording |
 |---|---|---|
-| **P6 style** | Activity table and Gantt across the top, 3D view beside it, activity detail tabs (General, Cost & EVM, Resources, Quantities, 4D tools) underneath | Activity ID, Original Duration, Total Float, Data Date |
+| **P6 style** | Directory bar down the left (Projects, WBS, Activities, Resources, Cost, Quantities, 4D, Reports, P6 import), command bar down the right (Add, Delete, Schedule, Save, Expand, Collapse, Zoom, Fit, Find, XER, Snapshot), activity table and Gantt across the top with the 3D view beside it, detail tabs underneath | Activity ID, Original Duration, Total Float, Data Date |
 | **MS Project style** | Ribbon tabs (File, Task, Resource, Report, Project, View), timeline strip at the top, Gantt with row numbers and a Predecessors column, task form underneath | ID, Task Name, Duration, Total Slack, Status Date, Calculate |
 | **4D style** | 3D model in the middle, Gantt on the left, linking tools on the right, timeline along the bottom | Task ID, Focus date, Reschedule |
 

@@ -24,6 +24,7 @@ import { SetupWizard } from "./SetupWizard";
 import { useTerms } from "./terms";
 import { useAppearance } from "./appearance";
 import { ModeSwitch, ThemeButton } from "./ModeSwitch";
+import { CommandBar, DirectoryBar, type DetailTab } from "./P6Rails";
 import {
   Box,
   Boxes,
@@ -87,7 +88,6 @@ export function App() {
   return <Workspace />;
 }
 
-type DetailTab = "activity" | "cost" | "resources" | "quantities" | "tools";
 
 function Workspace() {
   const viewerRef = useRef<Viewer | null>(null);
@@ -944,6 +944,14 @@ function Workspace() {
       )}
       {mode === "p6" && (
         <main className="layout-p6">
+          <DirectoryBar
+            detailTab={detailTab}
+            setDetailTab={setDetailTab}
+            onProjects={() => setProjectsTab("database")}
+            onReports={() => store.setView("dashboards")}
+            onP6={() => setProjectsTab("p6")}
+          />
+          <div className="p6-main">
           <div className="p6-top">
             <section className="p6-gantt">
               <div className="pane-title">{t.activities}</div>
@@ -955,6 +963,13 @@ function Workspace() {
             {detailTabs}
             {detailBody}
           </section>
+          </div>
+          <CommandBar
+            onSchedule={runSchedule}
+            onSave={() => void saveToDb(false).catch((e) => window.alert(e.message))}
+            onExportXer={() => exportSchedule("xer")}
+            onSnapshot={snapshot}
+          />
         </main>
       )}
       {mode === "msp" && (

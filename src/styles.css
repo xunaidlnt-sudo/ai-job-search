@@ -418,7 +418,23 @@ footer { background: var(--panel); border-top: 1px solid var(--line); }
 html[data-mode="msp"] .status { background: var(--surface-3); }
 
 /* ---------- P6 layout: activity table + Gantt on top, details below ---------- */
-.app > .layout-p6, .app > .layout-msp { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.app > .layout-msp, .p6-main { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.app > .layout-p6 { flex: 1; min-height: 0; display: flex; }
+.p6-main { min-width: 0; }
+
+/* P6 directory bar (left) and command bar (right) */
+.p6-rail { flex: none; width: 70px; display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 5px; overflow-y: auto; scrollbar-width: none; background: var(--surface-3); }
+.p6-rail-left { border-right: 1px solid var(--line); }
+.p6-rail-right { border-left: 1px solid var(--line); }
+.p6-rail button { flex-direction: column; gap: 3px; min-height: 52px; padding: 5px 2px; border: 1px solid transparent; background: transparent; border-radius: var(--radius-sm); font-size: 10.5px; font-weight: 500; line-height: 1.15; color: var(--text-2); white-space: normal; text-align: center; }
+.p6-rail button svg { color: var(--accent); }
+.p6-rail button:hover:not(:disabled) { background: var(--panel); border-color: var(--line); }
+.p6-rail button.on { background: var(--panel); border-color: var(--line); color: var(--text); box-shadow: inset 3px 0 0 var(--accent), var(--shadow-sm); }
+.p6-rail-right button.on { box-shadow: inset -3px 0 0 var(--accent), var(--shadow-sm); }
+.p6-rail button:disabled svg { color: var(--muted); }
+.p6-rail .rail-sep { height: 1px; background: var(--line); margin: 4px 6px; flex: none; }
+html[data-mode="p6"] .p6-rail-left { background: linear-gradient(180deg, var(--surface-3), var(--surface-2)); }
+@media (max-height: 760px) { .p6-rail button { min-height: 40px; } .p6-rail button span { font-size: 9.5px; } }
 .p6-top { flex: 1 1 60%; min-height: 0; display: grid; grid-template-columns: minmax(520px, 1fr) minmax(280px, 34%); }
 .p6-gantt { background: var(--panel); border-right: 1px solid var(--line); min-height: 0; display: flex; flex-direction: column; }
 .p6-gantt > .gantt { flex: 1; min-height: 0; }
@@ -465,7 +481,8 @@ html[data-mode="msp"] .msp-form > .tabs button.active { box-shadow: inset 0 -3px
   .left, .right { border: none; border-bottom: 1px solid var(--line); }
   .right { min-height: 300px; }
   .p6-top, .msp-top, .msp-top:has(.msp-tools) { grid-template-columns: 1fr; grid-template-rows: 50vh 40vh auto; }
-  .layout-p6, .layout-msp { overflow: auto; }
+  .p6-rail { width: 52px; } .p6-rail button span { display: none; } .p6-rail button { min-height: 40px; }
+  .p6-main, .layout-msp { overflow: auto; }
   .p6-details, .msp-form { flex: none; min-height: 50vh; }
 }
 

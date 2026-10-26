@@ -30,6 +30,9 @@ interface Col {
 
 const days = (h: number | null | undefined, hpd: number) => (h === null || h === undefined ? "" : String(Math.round((h / hpd) * 10) / 10));
 
+export type GanttCommand = "zoom-in" | "zoom-out" | "fit" | "find";
+export const ganttCommand = (c: GanttCommand) => window.dispatchEvent(new CustomEvent<GanttCommand>("stratum:gantt", { detail: c }));
+
 function columnsFor(mode: InterfaceMode, t: Terms): Col[] {
   const tf: Col = {
     key: "tf",
@@ -98,6 +101,19 @@ export function Gantt() {
   const [width, setWidth] = useState(600);
   const [zoom, setZoom] = useState(1);
   const [filter, setFilter] = useState("");
+  const filterRef = useRef<HTMLInputElement>(null);
+  // Commands from the P6 command bar and other shortcuts.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const action = (e as CustomEvent<GanttCommand>).detail;
+      if (action === "zoom-in") setZoom((z) => Math.min(40, z * 1.5));
+      else if (action === "zoom-out") setZoom((z) => Math.max(0.25, z / 1.5));
+      else if (action === "fit") setZoom(1);
+      else if (action === "find") filterRef.current?.focus();
+    };
+    window.addEventListener("stratum:gantt", on);
+    return () => window.removeEventListener("stratum:gantt", on);
+  }, []);
   const bodyRef = useRef<HTMLDivElement>(null);
   // Widths are set for 12 px text; scale them with the chosen text size and font.
   const fontSize = useConfig((st) => st.config.fontSize);
@@ -172,7 +188,7 @@ export function Gantt() {
   return (
     <div className={`gantt gantt-${mode}`}>
       <div className="gantt-toolbar">
-        <input placeholder={`Filter ${t.activities.toLowerCase()}…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <input ref={filterRef} placeholder={`Filter ${t.activities.toLowerCase()}…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
         <span className="muted">
           {schedule.activities.length} {t.activities.toLowerCase()}
         </span>

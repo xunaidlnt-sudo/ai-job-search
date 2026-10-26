@@ -29,6 +29,54 @@ const REL_TYPES: RelationshipType[] = ["FS", "SS", "FF", "SF"];
 
 const uid = (p: string) => `${p}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 6)}`;
 
+/** Add a 5-day task after the selected activity (FS link), or at the data date. */
+export function addActivityAfterSelected() {
+  const st = useStore.getState();
+  const schedule = st.schedule;
+  if (!schedule) return;
+  const act = schedule.activities.find((a) => a.id === st.selectedActivity) ?? null;
+  const cals = schedule.calendars ?? [];
+  const cal = cals.find((c) => c.id === (act?.calendarId ?? schedule.defaultCalendarId)) ?? cals[0] ?? standardCalendar();
+  const hpd = cal.hoursPerDay || 8;
+  let n = schedule.activities.length + 1;
+  let code = `A${n * 10}`;
+  while (schedule.activities.some((a) => a.code === code)) code = `A${(n += 1) * 10}`;
+  const start = schedule.dataDate ?? Date.now();
+  const a: Activity = {
+    id: uid("new"),
+    code,
+    name: "New activity",
+    wbsId: act?.wbsId ?? schedule.wbs[0]?.id ?? null,
+    type: "task",
+    status: "not-started",
+    percentComplete: 0,
+    start,
+    finish: start,
+    baselineStart: null,
+    baselineFinish: null,
+    actualStart: null,
+    actualFinish: null,
+    totalFloatHours: null,
+    originalDurationHours: 5 * hpd,
+    remainingDurationHours: 5 * hpd,
+    critical: false,
+    calendarId: act?.calendarId ?? schedule.defaultCalendarId ?? null,
+    codes: {},
+  };
+  st.addActivity(a);
+  if (act) st.addRelationship({ id: uid("rel"), predecessorId: act.id, successorId: a.id, type: "FS", lagHours: 0 });
+  st.selectActivity(a.id);
+  st.setStatus(`Added ${code}${act ? ` after ${act.code}` : ""}. Press F9 to schedule it.`);
+}
+
+export function deleteSelectedActivity() {
+  const st = useStore.getState();
+  const act = st.schedule?.activities.find((a) => a.id === st.selectedActivity);
+  if (!act || !window.confirm(`Delete ${act.code} ${act.name} and its relationships?`)) return;
+  st.deleteActivity(act.id);
+  st.selectActivity(null);
+}
+
 export function ActivityEditor() {
   const st = useStore();
   const { schedule, selectedActivity } = st;
@@ -41,37 +89,7 @@ export function ActivityEditor() {
 
   if (!schedule) return <div className="empty">Load or create a schedule first.</div>;
 
-  const newActivity = () => {
-    let n = schedule.activities.length + 1;
-    let code = `A${n * 10}`;
-    while (schedule.activities.some((a) => a.code === code)) code = `A${(n += 1) * 10}`;
-    const start = schedule.dataDate ?? Date.now();
-    const a: Activity = {
-      id: uid("new"),
-      code,
-      name: "New activity",
-      wbsId: act?.wbsId ?? schedule.wbs[0]?.id ?? null,
-      type: "task",
-      status: "not-started",
-      percentComplete: 0,
-      start,
-      finish: start,
-      baselineStart: null,
-      baselineFinish: null,
-      actualStart: null,
-      actualFinish: null,
-      totalFloatHours: null,
-      originalDurationHours: 5 * hpd,
-      remainingDurationHours: 5 * hpd,
-      critical: false,
-      calendarId: act?.calendarId ?? schedule.defaultCalendarId ?? null,
-      codes: {},
-    };
-    st.addActivity(a);
-    if (act) st.addRelationship({ id: uid("rel"), predecessorId: act.id, successorId: a.id, type: "FS", lagHours: 0 });
-    st.selectActivity(a.id);
-    st.setStatus(`Added ${code}${act ? ` after ${act.code}` : ""}. Press F9 to schedule it.`);
-  };
+  const newActivity = () => addActivityAfterSelected();
 
   return (
     <div className="editor">
@@ -79,11 +97,7 @@ export function ActivityEditor() {
         <button onClick={newActivity}>+ New activity{act ? " after this" : ""}</button>
         <button
           disabled={!act}
-          onClick={() => {
-            if (!act || !window.confirm(`Delete ${act.code} ${act.name} and its relationships?`)) return;
-            st.deleteActivity(act.id);
-            st.selectActivity(null);
-          }}
+          onClick={deleteSelectedActivity}
         >
           Delete
         </button>

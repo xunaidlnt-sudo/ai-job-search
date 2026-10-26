@@ -92,6 +92,7 @@ export interface AppState {
   setSim: (patch: Partial<SimulationOptions>) => void;
   setStatus: (msg: string, busy?: boolean) => void;
   toggleWbs: (id: string) => void;
+  setCollapsedWbs: (ids: Set<string>) => void;
   setScheduleReport: (r: ScheduleReport | null) => void;
 
   // Schedule editing
@@ -184,6 +185,7 @@ export const useStore = create<AppState>((set) => {
     setSpeed: (speed) => set({ speed }),
     setSim: (patch) => set((s) => ({ sim: { ...s.sim, ...patch } })),
     setStatus: (status, busy = false) => set({ status, busy }),
+    setCollapsedWbs: (ids) => set({ collapsedWbs: ids }),
     toggleWbs: (id) =>
       set((s) => {
         const next = new Set(s.collapsedWbs);
