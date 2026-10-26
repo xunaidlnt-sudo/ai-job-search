@@ -1,8 +1,10 @@
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { isDesktop, useConfig } from "../backend/config";
 import { serverLogin, serverStatus, type serverBackend } from "../backend/server";
 import type { SessionUser } from "../backend/types";
 import { uid, type InterfaceMode, type P6Connection, type P6ConnectionKind, type SmtpSettings } from "../core/reporting";
+import { FONTS } from "./appearance";
 import { MODE_INFO } from "./terms";
 
 type Tab = "interface" | "data" | "p6" | "email" | "users";
@@ -22,7 +24,9 @@ export function SettingsDialog({ initialTab = "interface", onClose }: { initialT
       <div className="help settings" role="dialog" aria-label="Settings" onClick={(e) => e.stopPropagation()}>
         <div className="settings-head">
           <h2>Settings</h2>
-          <button onClick={onClose}>Close</button>
+          <button className="tb icon-only" onClick={onClose} title="Close" aria-label="Close">
+            <X size={16} aria-hidden />
+          </button>
         </div>
         <div className="tabs">
           {tabs.map(([t, l]) => (
@@ -45,9 +49,19 @@ export function SettingsDialog({ initialTab = "interface", onClose }: { initialT
 
 function InterfaceTab() {
   const { config, update } = useConfig();
+  const seg = <T extends string>(value: T, opts: [T, string][], set: (v: T) => void) => (
+    <div className="seg">
+      {opts.map(([v, l]) => (
+        <button key={v} className={value === v ? "active" : ""} onClick={() => set(v)}>
+          {l}
+        </button>
+      ))}
+    </div>
+  );
   return (
     <div className="stack">
-      <p className="muted">Same data and engine in every mode; only layout, wording and default columns change.</p>
+      <h4>Layout</h4>
+      <p className="muted">Same data and engine in every layout; only the arrangement, wording and default columns change. You can also switch from the top bar or with Ctrl+Alt+1/2/3.</p>
       <div className="mode-cards">
         {(Object.keys(MODE_INFO) as InterfaceMode[]).map((m) => (
           <button key={m} className={`mode-card ${config.mode === m ? "active" : ""}`} onClick={() => update({ mode: m })}>
@@ -56,6 +70,42 @@ function InterfaceTab() {
           </button>
         ))}
       </div>
+
+      <h4>Font</h4>
+      <div className="font-list" role="radiogroup" aria-label="Font">
+        {FONTS.map((f) => (
+          <button
+            key={f.id}
+            role="radio"
+            aria-checked={config.font === f.id}
+            className={`font-card ${config.font === f.id ? "active" : ""}`}
+            style={{ fontFamily: f.stack, fontFeatureSettings: f.features }}
+            onClick={() => update({ font: f.id })}
+          >
+            <span className="font-name">{f.label}</span>
+            <span className="font-sample">ST-210 Level 1 Slab · 15d · 70.0% · 24-Apr-26</span>
+            <span className="font-note">{f.note}</span>
+          </button>
+        ))}
+      </div>
+      <div className="row wrap appearance-row">
+        <label className="inline">
+          Text size
+          {seg(String(config.fontSize), [["12", "Small"], ["13", "Normal"], ["14", "Large"], ["15", "Larger"]], (v) => update({ fontSize: Number(v) }))}
+        </label>
+        <label className="inline">
+          Theme
+          {seg(config.theme, [["mode", "Match layout"], ["light", "Light"], ["dark", "Dark"]], (v) => update({ theme: v }))}
+        </label>
+        <label className="inline">
+          Density
+          {seg(config.density, [["compact", "Compact"], ["comfortable", "Comfortable"]], (v) => update({ density: v }))}
+        </label>
+      </div>
+      <p className="muted">
+        All fonts are installed with Stratum and work offline. Stratum Sans is Inter (SIL Open Font License) set with its own stylistic alternates; the others are IBM Plex Sans,
+        Source Sans 3, Nunito Sans and JetBrains Mono, also under the Open Font License.
+      </p>
     </div>
   );
 }

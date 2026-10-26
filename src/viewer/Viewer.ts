@@ -67,6 +67,7 @@ export class Viewer {
     const grid = new THREE.GridHelper(400, 80, "#c3c9d2", "#d9dee5");
     grid.position.y = -2.5;
     this.scene.add(grid);
+    this.grid = grid;
     this.scene.add(this.root);
     this.scene.add(this.overlay);
 
@@ -86,6 +87,24 @@ export class Viewer {
   }
 
   /** Move the canvas into another container (interface layouts place the 3D view differently). */
+  private grid: THREE.GridHelper | null = null;
+
+  /** Match the viewport to the light or dark interface. */
+  setTheme(theme: "light" | "dark") {
+    const dark = theme === "dark";
+    this.scene.background = new THREE.Color(dark ? "#1b1f25" : "#eef1f5");
+    if (this.grid) {
+      this.scene.remove(this.grid);
+      this.grid.geometry.dispose();
+      (this.grid.material as THREE.Material).dispose();
+      const g = new THREE.GridHelper(400, 80, dark ? "#3a424d" : "#c3c9d2", dark ? "#2a3038" : "#d9dee5");
+      g.position.copy(this.grid.position);
+      this.scene.add(g);
+      this.grid = g;
+    }
+    this.requestRender();
+  }
+
   attach(container: HTMLElement) {
     if (container === this.container) return;
     this.resizeObserver.disconnect();

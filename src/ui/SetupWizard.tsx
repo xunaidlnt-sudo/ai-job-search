@@ -61,7 +61,8 @@ export function SetupWizard({ onDone }: { onDone: (openSettings?: "p6" | "email"
   return (
     <div className="help-backdrop">
       <div className="help wizard" role="dialog" aria-label="Set up Stratum">
-        <img src="./stratum-logo.png" alt="Stratum 4D" className="help-logo" />
+        <img src="./stratum-logo.png" alt="Stratum 4D" className="help-logo logo-light" />
+        <img src="./stratum-logo-dark.png" alt="" aria-hidden className="help-logo logo-dark" />
         {step === "mode" && (
           <>
             <h2>How do you like to work?</h2>

@@ -16,11 +16,18 @@ export interface AppConfig {
   token: string | null;
   user: SessionUser | null;
   serverPdf: boolean;
+  /** Typeface id from FONTS in ui/appearance.ts. */
+  font: string;
+  /** Base text size in px. */
+  fontSize: number;
+  /** "mode" follows each interface mode's own look (4D dark, P6 and MS Project light). */
+  theme: "mode" | "light" | "dark";
+  density: "compact" | "comfortable";
 }
 
 const KEY = "stratum.config.v1";
 
-const DEFAULT: AppConfig = { configured: false, mode: "4d", storage: "local", serverUrl: "", token: null, user: null, serverPdf: true };
+const DEFAULT: AppConfig = { configured: false, mode: "4d", storage: "local", serverUrl: "", token: null, user: null, serverPdf: true, font: "stratum", fontSize: 13, theme: "mode", density: "compact" };
 
 function load(): AppConfig {
   try {

@@ -22,6 +22,35 @@ import { ReportView } from "./ReportView";
 import { SettingsDialog } from "./SettingsDialog";
 import { SetupWizard } from "./SetupWizard";
 import { useTerms } from "./terms";
+import { useAppearance } from "./appearance";
+import { ModeSwitch, ThemeButton } from "./ModeSwitch";
+import {
+  Box,
+  Boxes,
+  Calculator,
+  ChartLine,
+  FileDown,
+  FileText,
+  Info,
+  Link2,
+  Ruler,
+  Users,
+  ChevronDown,
+  CircleHelp,
+  CloudUpload,
+  Database,
+  Download,
+  FileUp,
+  FolderOpen,
+  LayoutDashboard,
+  Maximize,
+  Menu,
+  Save,
+  Settings,
+  Sparkles,
+  Square,
+  Video,
+} from "lucide-react";
 import { ActivityEditor } from "./ActivityEditor";
 import { clearAutosave, loadAutosave, startAutosave } from "./autosave";
 import { CostPanel, QuantityPanel, ResourcePanel } from "./Analysis";
@@ -65,6 +94,7 @@ function Workspace() {
   const { config, backend } = useConfig();
   const mode = config.mode;
   const t = useTerms();
+  const theme = useAppearance();
   const [settingsTab, setSettingsTab] = useState<null | "interface" | "data" | "p6" | "email" | "users">(null);
   const [projectsTab, setProjectsTab] = useState<null | "database" | "p6">(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("activity");
@@ -92,10 +122,13 @@ function Workspace() {
   // One viewer for the session; layouts put its canvas in different places.
   const hostRef = useCallback((el: HTMLDivElement | null) => {
     if (!el) return;
-    if (!viewerRef.current) viewerRef.current = new Viewer(el);
-    else viewerRef.current.attach(el);
+    if (!viewerRef.current) {
+      viewerRef.current = new Viewer(el);
+      viewerRef.current.setTheme(document.documentElement.dataset.theme === "dark" ? "dark" : "light");
+    } else viewerRef.current.attach(el);
   }, []);
   useEffect(() => () => viewerRef.current?.dispose(), []);
+  useEffect(() => viewerRef.current?.setTheme(theme), [theme]);
 
   // Rebuild viewer objects when elements are split or unsplit.
   const segKey = useMemo(() => segments.map((s) => s.id).join(","), [segments]);
@@ -569,22 +602,35 @@ function Workspace() {
   const dbLabel = backend.label;
 
   // Buttons shared by every layout, so all three modes keep the same features.
+  const I = { size: 16, strokeWidth: 1.9, "aria-hidden": true } as const;
   const btn = {
     importSchedule: (
-      <button onClick={importSchedule} title="Primavera P6 .xer or Microsoft Project .xml">
-        Import schedule
+      <button className="tb" onClick={importSchedule} title="Import a Primavera P6 .xer or Microsoft Project .xml">
+        <FileUp {...I} />
+        <span>Import schedule</span>
       </button>
     ),
-    importIfc: <button onClick={importIfc}>Import IFC</button>,
+    importIfc: (
+      <button className="tb" onClick={importIfc} title="Import an IFC building model">
+        <Box {...I} />
+        <span>Import IFC</span>
+      </button>
+    ),
     run: (
-      <button className={scheduleDirty ? "primary" : ""} onClick={runSchedule} disabled={!schedule} title={`${t.schedule} using CPM (F9)`}>
-        {t.schedule} (F9)
+      <button className={`tb ${scheduleDirty ? "primary" : ""}`} onClick={runSchedule} disabled={!schedule} title={`${t.schedule} using CPM (F9)`}>
+        <Calculator {...I} />
+        <span>{t.schedule}</span>
+        <kbd>F9</kbd>
       </button>
     ),
     exportMenu: (
       <details className="menu">
-        <summary>Export</summary>
-        <div className="menu-body">
+        <summary className="tb collapse" title="Export">
+          <Download {...I} />
+          <span>Export</span>
+          <ChevronDown size={13} aria-hidden className="chev" />
+        </summary>
+        <div className="menu-body" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute("open")}>
           <button onClick={() => exportSchedule("xer")} disabled={!schedule}>P6 XER</button>
           <button onClick={() => exportSchedule("csv")} disabled={!schedule}>CSV (Excel)</button>
           <button onClick={snapshot}>Snapshot PNG</button>
@@ -592,51 +638,81 @@ function Workspace() {
       </details>
     ),
     projects: (
-      <button onClick={() => setProjectsTab("database")} title={`Open or save ${t.projects.toLowerCase()} in ${dbLabel}`}>
-        {t.projects}
+      <button className="tb" onClick={() => setProjectsTab("database")} title={`Open or save ${t.projects.toLowerCase()} in ${dbLabel}`}>
+        <FolderOpen {...I} />
+        <span>{t.projects}</span>
       </button>
     ),
     save: (
-      <button onClick={() => void saveToDb(false).catch((e) => window.alert(e.message))} disabled={!schedule} title="Save to the database (Ctrl+S)">
-        Save
+      <button className="tb" onClick={() => void saveToDb(false).catch((e) => window.alert(e.message))} disabled={!schedule} title="Save to the database (Ctrl+S)">
+        <Save {...I} />
+        <span>Save</span>
       </button>
     ),
-    p6: <button onClick={() => setProjectsTab("p6")}>Import from P6</button>,
+    p6: (
+      <button className="tb" onClick={() => setProjectsTab("p6")} title="Import a project from a P6 connection">
+        <Database {...I} />
+        <span>Import from P6</span>
+      </button>
+    ),
     push: canPush ? (
-      <button onClick={pushToP6} title="Send progress back to P6 EPPM">
-        Update P6
+      <button className="tb" onClick={pushToP6} title="Send progress back to P6 EPPM">
+        <CloudUpload {...I} />
+        <span>Update P6</span>
       </button>
     ) : null,
-    dashboards: <button onClick={() => store.setView("dashboards")}>Dashboards</button>,
-    fit: <button onClick={() => viewerRef.current?.fit(selectedElements.size ? selectedElements : undefined)}>Zoom to fit</button>,
-    record: (
-      <button onClick={toggleRecording} disabled={!schedule} className={recording ? "danger" : ""}>
-        {recording ? "■ Stop recording" : "● Record video"}
+    dashboards: (
+      <button className="tb" onClick={() => store.setView("dashboards")} title="Dashboards and reports">
+        <LayoutDashboard {...I} />
+        <span>Dashboards</span>
       </button>
     ),
-    demo: <button onClick={loadDemo}>Load demo</button>,
+    fit: (
+      <button className="tb collapse" onClick={() => viewerRef.current?.fit(selectedElements.size ? selectedElements : undefined)} title="Zoom the 3D view to fit">
+        <Maximize {...I} />
+        <span>Fit view</span>
+      </button>
+    ),
+    record: (
+      <button onClick={toggleRecording} disabled={!schedule} className={`tb collapse ${recording ? "danger" : ""}`} title="Record the 4D playback as video">
+        {recording ? <Square {...I} /> : <Video {...I} />}
+        <span>{recording ? "Stop" : "Record"}</span>
+      </button>
+    ),
+    demo: (
+      <button className="tb" onClick={loadDemo} title="Load the demo project">
+        <Sparkles {...I} />
+        <span>Demo</span>
+      </button>
+    ),
     settings: (
-      <button onClick={() => setSettingsTab("interface")} title="Interface, database, P6, email">
-        ⚙ Settings
+      <button className="tb icon-only" onClick={() => setSettingsTab("interface")} title="Settings: interface, fonts, database, P6, email">
+        <Settings {...I} />
       </button>
     ),
     help: (
-      <button title="Getting started and shortcuts (?)" onClick={() => setHelpOpen(true)}>
-        ?
+      <button className="tb icon-only" title="Getting started and shortcuts (?)" onClick={() => setHelpOpen(true)}>
+        <CircleHelp {...I} />
       </button>
     ),
   };
 
   const fileMenu = (
     <details className="menu">
-      <summary>File</summary>
+      <summary className="tb" title="File">
+        <Menu {...I} />
+        <span>File</span>
+        <ChevronDown size={13} aria-hidden className="chev" />
+      </summary>
       <div className="menu-body" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute("open")}>
         <button onClick={() => setProjectsTab("database")}>Open from database…</button>
         <button onClick={() => void saveToDb(true).catch((e) => window.alert(e.message))} disabled={!schedule}>Save as new</button>
+        <hr />
         <button onClick={importSchedule}>Import schedule (XER / XML)…</button>
         <button onClick={importIfc}>Import IFC model…</button>
         <button onClick={() => setProjectsTab("p6")}>Import from P6…</button>
         {canPush && <button onClick={pushToP6}>Update P6 with progress</button>}
+        <hr />
         <button onClick={openProject}>Open project file…</button>
         <button onClick={saveProject} disabled={!schedule}>Save project file</button>
         <button onClick={loadDemo}>Load demo</button>
@@ -646,7 +722,8 @@ function Workspace() {
 
   const brand = (
     <div className="brand">
-      <img src="./stratum-logo.png" alt="Stratum 4D" />
+      <img className="logo-light" src="./stratum-logo.png" alt="Stratum 4D" />
+      <img className="logo-dark" src="./stratum-logo-dark.png" alt="" aria-hidden />
     </div>
   );
 
@@ -658,6 +735,8 @@ function Workspace() {
         {currentProjectId ? ` · v${currentVersion}` : ""}
       </span>
       {savedAt && <span className="muted autosaved">Autosaved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+      <ModeSwitch />
+      <ThemeButton />
       {btn.settings}
       {btn.help}
     </>
@@ -677,8 +756,8 @@ function Workspace() {
           {btn.push}
           <span className="sep" />
           {btn.exportMenu}
-          <button onClick={openProject}>Open file…</button>
-          <button onClick={saveProject} disabled={!schedule}>Save file</button>
+          <button className="tb" onClick={openProject}><FileText {...I} /><span>Open file</span></button>
+          <button className="tb" onClick={saveProject} disabled={!schedule}><FileDown {...I} /><span>Save file</span></button>
           {btn.demo}
         </>
       ),
@@ -689,8 +768,8 @@ function Workspace() {
         <>
           {btn.run}
           <span className="sep" />
-          <button onClick={() => setDetailTab("activity")} className={detailTab === "activity" ? "active" : ""}>Task information</button>
-          <button onClick={() => { setShowTools(true); setDetailTab("tools"); }}>Link to model</button>
+          <button onClick={() => setDetailTab("activity")} className={`tb ${detailTab === "activity" ? "active" : ""}`}><Info {...I} /><span>Information</span></button>
+          <button className="tb" onClick={() => { setShowTools(true); setDetailTab("tools"); }}><Link2 {...I} /><span>Link to model</span></button>
         </>
       ),
     },
@@ -698,9 +777,9 @@ function Workspace() {
       label: "Resource",
       body: (
         <>
-          <button onClick={() => setDetailTab("resources")} className={detailTab === "resources" ? "active" : ""}>Resource usage</button>
-          <button onClick={() => setDetailTab("cost")} className={detailTab === "cost" ? "active" : ""}>Cost & earned value</button>
-          <button onClick={() => setDetailTab("quantities")} className={detailTab === "quantities" ? "active" : ""}>Quantities</button>
+          <button onClick={() => setDetailTab("resources")} className={`tb ${detailTab === "resources" ? "active" : ""}`}><Users {...I} /><span>Resource usage</span></button>
+          <button onClick={() => setDetailTab("cost")} className={`tb ${detailTab === "cost" ? "active" : ""}`}><ChartLine {...I} /><span>Cost & EVM</span></button>
+          <button onClick={() => setDetailTab("quantities")} className={`tb ${detailTab === "quantities" ? "active" : ""}`}><Ruler {...I} /><span>Quantities</span></button>
         </>
       ),
     },
@@ -729,9 +808,7 @@ function Workspace() {
         <>
           {btn.fit}
           {btn.record}
-          <button className={showTools ? "active" : ""} onClick={() => setShowTools(!showTools)}>
-            4D tools pane
-          </button>
+          <button className={`tb ${showTools ? "active" : ""}`} onClick={() => setShowTools(!showTools)}><Boxes {...I} /><span>4D tools pane</span></button>
         </>
       ),
     },

@@ -52,6 +52,10 @@ The first time Stratum starts, a short setup asks which layout you want. The eng
 | **MS Project style** | Ribbon tabs (File, Task, Resource, Report, Project, View), timeline strip at the top, Gantt with row numbers and a Predecessors column, task form underneath | ID, Task Name, Duration, Total Slack, Status Date, Calculate |
 | **4D style** | 3D model in the middle, Gantt on the left, linking tools on the right, timeline along the bottom | Task ID, Focus date, Reschedule |
 
+**Switching and appearance.** The layout switch in the top bar (P6 · Project · 4D) changes mode instantly; `Ctrl+Alt+1/2/3` does the same. Each layout has its own look: P6 a navy title bar with green remaining and blue actual bars, MS Project a green ribbon with large buttons and light-blue task bars, 4D a graphite dark theme with the Stratum orange. The sun/moon button flips light and dark; **Settings → Interface** also has font, text size and density.
+
+Fonts are bundled, so the desktop app looks the same offline. The default, **Stratum Sans**, is [Inter](https://rsms.me/inter/) set with its own stylistic alternates (single-storey a, open digits, tailed l). IBM Plex Sans, Source Sans 3, Nunito Sans and JetBrains Mono are also included, plus the system font. All are under the SIL Open Font License 1.1.
+
 ## Project database
 
 Projects are saved to a database instead of loose files (**Save** or `Ctrl+S`, **Projects** to open). Each save gets a version number; if someone else saved the project after you opened it, Stratum refuses to overwrite their work and offers *Save as new*.

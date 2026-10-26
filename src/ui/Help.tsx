@@ -2,7 +2,8 @@ export function Help({ onClose, onDemo }: { onClose: () => void; onDemo: () => v
   return (
     <div className="help-backdrop" onClick={onClose}>
       <div className="help" role="dialog" aria-label="Getting started" onClick={(e) => e.stopPropagation()}>
-        <img src="./stratum-logo.png" alt="Stratum 4D" className="help-logo" />
+        <img src="./stratum-logo.png" alt="Stratum 4D" className="help-logo logo-light" />
+        <img src="./stratum-logo-dark.png" alt="" aria-hidden className="help-logo logo-dark" />
         <h2>Getting started</h2>
         <p className="muted">Four steps from a P6 export and an IFC model to a 4D sequence.</p>
         <ol>

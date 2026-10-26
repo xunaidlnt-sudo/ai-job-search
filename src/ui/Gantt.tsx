@@ -39,14 +39,14 @@ function columnsFor(mode: InterfaceMode, t: Terms): Col[] {
     render: (c) => days(c.a.totalFloatHours, c.hpd),
     className: (c) => (c.a.totalFloatHours !== null && c.a.totalFloatHours < 0 ? "bad" : ""),
   };
-  const start: Col = { key: "start", label: "Start", width: 64, render: (c) => fmtDate(c.start) };
-  const finish: Col = { key: "finish", label: "Finish", width: 64, render: (c) => fmtDate(c.finish) };
-  const pct: Col = { key: "pct", label: "%", width: 34, title: t.percentComplete, render: (c) => Math.round(c.a.percentComplete) };
+  const start: Col = { key: "start", label: "Start", width: 78, render: (c) => fmtDate(c.start) };
+  const finish: Col = { key: "finish", label: "Finish", width: 78, render: (c) => fmtDate(c.finish) };
+  const pct: Col = { key: "pct", label: "%", width: 38, title: t.percentComplete, render: (c) => Math.round(c.a.percentComplete) };
   if (mode === "p6") {
     return [
       { key: "code", label: t.activityId, width: 82, render: (c) => c.a.code },
       { key: "name", label: t.activityName, width: 170, render: (c) => c.a.name },
-      { key: "od", label: "Orig Dur", width: 44, title: `${t.originalDuration} (days)`, render: (c) => days(c.a.originalDurationHours, c.hpd) },
+      { key: "od", label: "Orig Dur", width: 50, title: `${t.originalDuration} (days)`, render: (c) => days(c.a.originalDurationHours, c.hpd) },
       start,
       finish,
       tf,
@@ -63,14 +63,14 @@ function columnsFor(mode: InterfaceMode, t: Terms): Col[] {
     return [
       { key: "id", label: t.activityId, width: 34, render: (c) => c.rowNo.get(c.a.id) ?? "" },
       { key: "name", label: t.activityName, width: 180, render: (c) => c.a.name },
-      { key: "dur", label: "Duration", width: 62, render: (c) => (c.a.originalDurationHours === null ? "" : `${days(c.a.originalDurationHours, c.hpd)} days`) },
+      { key: "dur", label: "Duration", width: 68, render: (c) => (c.a.originalDurationHours === null ? "" : `${days(c.a.originalDurationHours, c.hpd)} days`) },
       start,
       finish,
       { key: "pred", label: t.predecessors, width: 76, render: (c) => c.preds.map((r) => rel(r, c)).filter(Boolean).join(",") },
     ];
   }
   return [
-    { key: "code", label: t.activityId, width: 72, render: (c) => c.a.code },
+    { key: "code", label: t.activityId, width: 76, render: (c) => c.a.code },
     { key: "name", label: "Name", width: 160, render: (c) => c.a.name },
     start,
     finish,
@@ -99,7 +99,11 @@ export function Gantt() {
   const [zoom, setZoom] = useState(1);
   const [filter, setFilter] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
-  const cols = useMemo(() => columnsFor(mode, t), [mode, t]);
+  // Widths are set for 12 px text; scale them with the chosen text size and font.
+  const fontSize = useConfig((st) => st.config.fontSize);
+  const font = useConfig((st) => st.config.font);
+  const widthScale = ((fontSize - 1) / 12) * (font === "mono" ? 1.18 : font === "nunito" || font === "plex" ? 1.04 : 1);
+  const cols = useMemo(() => columnsFor(mode, t).map((c) => ({ ...c, width: Math.round(c.width * widthScale) })), [mode, t, widthScale]);
   const COLS = cols.reduce((s, c) => s + c.width, 0);
 
   useEffect(() => {
