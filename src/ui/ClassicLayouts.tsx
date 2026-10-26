@@ -9,6 +9,7 @@
 import {
   BarChart3,
   CalendarCheck,
+  CalendarDays,
   ChevronDown,
   CircleHelp,
   Diamond,
@@ -41,6 +42,8 @@ import { ActivityEditor, addActivityAfterSelected, deleteSelectedActivity, type 
 import { CostPanel, ResourcePanel } from "./Analysis";
 import { Gantt, ganttCommand } from "./Gantt";
 import { ModeSwitch, ThemeButton } from "./ModeSwitch";
+import { useTraining } from "./training/engine";
+import { TrainingButton } from "./training/Training";
 import { CommandBar, DirectoryBar, type BottomView, type DetailTab } from "./P6Rails";
 import { fmtDate, useStore, type GanttFilterKind } from "./store";
 
@@ -164,6 +167,55 @@ const DETAIL_TABS: [DetailTab, string, EditorSection[]][] = [
   ["codes", "Codes", ["codes"]],
 ];
 
+/**
+ * Data date (MS Project: status date) as a date box. Moving it forward is the
+ * first step of an update; the time of day is kept. Reschedule (F9) after.
+ */
+function DataDateInput({ label }: { label: string }) {
+  const schedule = useStore((s) => s.schedule);
+  const ref = useRef<HTMLInputElement>(null);
+  const DAY = 86_400_000;
+  const dd = schedule?.dataDate ?? null;
+  const value = dd !== null ? new Date(dd).toISOString().slice(0, 10) : "";
+  return (
+    <span className="dd-edit" title={`${label}: progress is recorded up to this date. Click to change it, then reschedule (F9).`}>
+      {label}:
+      <button
+        type="button"
+        disabled={!schedule}
+        onClick={() => {
+          const el = ref.current;
+          if (!el) return;
+          try {
+            el.showPicker();
+          } catch {
+            el.focus();
+          }
+        }}
+      >
+        {fmtDate(dd) || "—"}
+        <CalendarDays size={12} aria-hidden />
+      </button>
+      <input
+        ref={ref}
+        type="date"
+        className="dd-native"
+        aria-label={label}
+        value={value}
+        disabled={!schedule}
+        onChange={(e) => {
+          const st = useStore.getState();
+          if (!st.schedule || !e.target.value) return;
+          const day = Date.parse(`${e.target.value}T00:00:00Z`);
+          const time = st.schedule.dataDate !== null ? ((st.schedule.dataDate % DAY) + DAY) % DAY : 0;
+          st.setSchedule({ ...st.schedule, dataDate: day + time }, { keepTime: true, dirty: true });
+          st.setStatus(`${label} set to ${fmtDate(day + time)}. Press F9 to reschedule.`);
+        }}
+      />
+    </span>
+  );
+}
+
 function EmptySample({ a }: { a: ClassicActions }) {
   return (
     <div className="empty-sample">
@@ -174,6 +226,13 @@ function EmptySample({ a }: { a: ClassicActions }) {
       <button className="link" onClick={() => a.sample("rc")}>
         or a small RC building
       </button>
+      <p className="empty-train">
+        New to planning or to Stratum?{" "}
+        <button className="link" onClick={() => useTraining.getState().openCatalog(true)}>
+          Start training mode
+        </button>{" "}
+        for guided, hands-on lessons.
+      </p>
     </div>
   );
 }
@@ -275,7 +334,13 @@ export function P6Screen({ a, banners, status }: { a: ClassicActions; banners: R
         { label: "Preferences…", onClick: () => a.settings("interface") },
       ],
     ],
-    ["Help", [{ label: "Getting Started", onClick: a.help, shortcut: "?" }]],
+    [
+      "Help",
+      [
+        { label: "Training Mode…", onClick: () => useTraining.getState().openCatalog(true) },
+        { label: "Getting Started", onClick: a.help, shortcut: "?" },
+      ],
+    ],
   ];
 
   return (
@@ -286,6 +351,7 @@ export function P6Screen({ a, banners, status }: { a: ClassicActions; banners: R
         <span className="cl-title">{schedule ? `Activities : ${schedule.projectCode} – ${schedule.projectName}` : "Activities"}</span>
         <span className="spacer" />
         <ModeSwitch />
+        <TrainingButton className="tb cl-train" />
         <ThemeButton />
       </div>
       <MenuBar className="cl-menubar" menus={menus} />
@@ -376,7 +442,7 @@ export function P6Screen({ a, banners, status }: { a: ClassicActions; banners: R
       <div className="cl-statusbar p6-status">
         <span>Portfolio: All Projects</span>
         <span>Access Mode: Shared</span>
-        <span>Data Date: {fmtDate(schedule?.dataDate ?? null) || "—"}</span>
+        <DataDateInput label="Data Date" />
         <span>Baseline: Project Baseline</span>
         <span>User: {user?.name ?? "Local user"}</span>
         <span>DB: {a.dbLabel}</span>
@@ -574,8 +640,7 @@ export function MspScreen({ a, banners, status }: { a: ClassicActions; banners: 
         </Group>
         <Group label="Status">
           <div className="rb-field">
-            Status Date:
-            <b>{fmtDate(schedule?.dataDate ?? null) || "NA"}</b>
+            <DataDateInput label="Status Date" />
           </div>
         </Group>
         <Group label="Data">
@@ -639,6 +704,7 @@ export function MspScreen({ a, banners, status }: { a: ClassicActions; banners: 
         <span className="cl-title center">{schedule ? `${schedule.projectCode} – Stratum 4D` : "Stratum 4D"}</span>
         <span className="msp-context">Gantt Chart Tools</span>
         <ModeSwitch />
+        <TrainingButton className="tb cl-train" />
         <ThemeButton />
       </div>
       <div className="msp-tabrow" role="tablist">

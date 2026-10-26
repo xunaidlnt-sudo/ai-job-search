@@ -71,6 +71,7 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 | Project database | **Done**: local SQLite (desktop), IndexedDB (browser) or PostgreSQL on Stratum Server; Docker Compose for the server |
 | Primavera P6 connection | **Done**: P6 EPPM REST (read, and write-back of progress); P6 Professional database on SQL Server, Oracle or SQLite (read-only) |
 | Interface modes | **Done**: P6 layout (menu bar, Directory and Command bars, Classic Schedule Layout, Activity Details tabs, usage profiles) and MS Project layout (ribbon, Timeline, Gantt Chart, Task Form, Tracking Gantt, Resource Usage), both schedule-only; 4D layout with the model. Chosen at first start, switched from the top bar or Settings |
+| Training | **Done**: training mode with 10 guided lessons on the live app (auto-checked tasks, Show me, quizzes), glossary; editable data date / status date for updates |
 | Reports and dashboards | **Done**: Reports in the top layout switch; builder with drag-to-move, corner resize, undo/redo, per-widget data, look and filter settings, table column picker, page themes and branding, user templates and dashboard files; gauges, milestone tracker, look-ahead, per-phase S-curves, plan vs actual by discipline, status donuts; slicers, PDF (landscape or portrait), Excel, SMTP email on daily/weekly/monthly schedules with run log |
 | Large models | **Partial**: one merged mesh per element and colour; only changed elements repaint during playback (50k-element state update under 0.5 s in tests). GPU instancing and level-of-detail planned |
 

@@ -97,6 +97,17 @@ Desktop app and Stratum Server only (the browser cannot reach a P6 server direct
 
 Passwords are stored encrypted: with the operating-system keychain in the desktop app, and with AES-GCM keyed by `STRATUM_SECRET` on the server. They are never sent back to the browser.
 
+## Training mode
+
+**Learn** (beside the layout switch, or Help → Training Mode) opens ten hands-on lessons, about 70 minutes in all, that run on the live application with the 220 kV GIS sample:
+
+- Getting started: a first look around, reading one activity, the MS Project layout;
+- Planning skills: critical path and float, the weekly progress update, adding an activity and its logic;
+- Project controls: baselines and variance, cost, resources and earned value;
+- 4D and reporting: 4D simulation, dashboards and reports.
+
+A coach card explains one idea at a time and highlights where it is on screen. Task steps ("set the Filter to Critical", "set % complete to 45") tick themselves off when the app sees the change; **Show me** does the step for you; short quizzes check understanding. Numbers on the cards are read live from the project. A searchable glossary of 38 planning terms, with their MS Project equivalents, sits beside the lessons, and progress is remembered on each computer.
+
 ## Dashboards and reports
 
 **Reports** sits in the top-bar switch next to P6 · Project · 4D (Ctrl+Alt+4) and opens a Power BI-style builder. Start from a template (Planning dashboard, EPC progress report, Project status), a blank page, your own saved templates or an imported dashboard file. Then click **Customise**:

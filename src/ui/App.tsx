@@ -54,6 +54,8 @@ import { Help } from "./Help";
 import { SidePanel } from "./SidePanel";
 import { fmtDate, useStore, type LeftTab } from "./store";
 import { Timeline } from "./Timeline";
+import { registerTrainingBridge } from "./training/engine";
+import { TrainingButton, TrainingLayer } from "./training/Training";
 
 const LEFT_TABS: { id: LeftTab; label: string }[] = [
   { id: "gantt", label: "Gantt" },
@@ -767,6 +769,7 @@ function Workspace() {
       </span>
       {savedAt && <span className="muted autosaved">Autosaved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
       <ModeSwitch />
+      <TrainingButton className="tb" />
       <ThemeButton />
       {btn.settings}
       {btn.help}
@@ -828,9 +831,11 @@ function Workspace() {
     help: () => setHelpOpen(true),
     dbLabel,
   };
+  registerTrainingBridge({ loadSample: () => loadDemo("gis"), schedule: runSchedule });
 
   return (
     <div className={`app mode-${mode}`}>
+      <TrainingLayer />
       {mode === "4d" && (
         <header className="toolbar">
           {brand}

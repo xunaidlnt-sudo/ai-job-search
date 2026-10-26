@@ -61,6 +61,7 @@ import type { Schedule } from "../core/types";
 import { download } from "./files";
 import { useStore } from "./store";
 import { ModeSwitch, ThemeButton } from "./ModeSwitch";
+import { TrainingButton } from "./training/Training";
 import {
   columnLabel,
   DEFAULT_COLUMNS,
@@ -289,6 +290,7 @@ export function DashboardsView({ onClose }: { onClose: () => void }) {
         <span className="muted reports-sub">{open ? `${open.projectCode} – ${open.projectName}` : "No project open"}</span>
         <span className="spacer" />
         <ModeSwitch />
+        <TrainingButton className="tb" />
         <ThemeButton />
         <button className="tb icon-only" title="Back to the schedule" onClick={onClose} aria-label="Back to the schedule">
           <X size={16} aria-hidden />
