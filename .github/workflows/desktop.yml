@@ -47,7 +47,7 @@ jobs:
 
       - run: npm ci
       - run: npm test
-      - run: npm run build
+      - run: npm run build && npm run build:electron
 
       # GitHub's macOS runners index and scan freshly mounted disk images, which
       # keeps the DMG busy so "hdiutil detach" fails. Stop both before building.

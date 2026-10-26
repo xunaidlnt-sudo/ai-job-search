@@ -13,7 +13,7 @@
     "desktop": "npm run build && npm run build:electron && electron . --no-sandbox",
     "dist": "npm run build && npm run build:electron && electron-builder --publish never",
     "dist:win": "npm run build && npm run build:electron && electron-builder --win --publish never",
-    "dist:mac": "npm run build && npm run build:electron && electron-builder --mac --publish never",
+    "dist:mac": "npm run build && npm run build:electron && electron-builder --mac --x64 --publish never && electron-builder --mac --arm64 --publish never",
     "dist:linux": "npm run build && npm run build:electron && electron-builder --linux --publish never",
     "samples": "vite-node scripts/gen-samples.ts",
     "build:server": "esbuild src/server/main.ts --bundle --platform=node --target=node20 --format=cjs --outfile=server-dist/server.cjs --external:playwright --external:playwright-core --external:oracledb --external:pg-native --log-level=warning && cp node_modules/sql.js/dist/sql-wasm.wasm server-dist/",
@@ -118,15 +118,7 @@
       "deleteAppDataOnUninstall": false
     },
     "mac": {
-      "target": [
-        {
-          "target": "dmg",
-          "arch": [
-            "x64",
-            "arm64"
-          ]
-        }
-      ],
+      "target": "dmg",
       "category": "public.app-category.productivity",
       "icon": "build/icon.png"
     },
