@@ -32,6 +32,8 @@ export interface ScheduleReport {
   error?: string;
 }
 
+export type GanttFilterKind = "all" | "critical" | "not-started" | "in-progress" | "complete" | "late" | "milestones";
+
 export interface AppState {
   schedule: Schedule | null;
   /** Elements as loaded from the model. */
@@ -55,6 +57,10 @@ export interface AppState {
   status: string;
   busy: boolean;
   collapsedWbs: Set<string>;
+  /** Activity filter used by the P6 and MS Project layouts (text plus a preset). */
+  ganttFilter: { text: string; kind: GanttFilterKind };
+  /** Show baseline bars and colour critical work (P6 "baseline bars", MS Project "Tracking Gantt"). */
+  ganttTracking: boolean;
   lastUpdate: (ScheduleDiff & { droppedLinks: number; keptLinks: number; at: number }) | null;
   sideTab: SideTab;
   leftTab: LeftTab;
@@ -94,6 +100,8 @@ export interface AppState {
   setStatus: (msg: string, busy?: boolean) => void;
   toggleWbs: (id: string) => void;
   setCollapsedWbs: (ids: Set<string>) => void;
+  setGanttFilter: (f: Partial<AppState["ganttFilter"]>) => void;
+  setGanttTracking: (on: boolean) => void;
   setScheduleReport: (r: ScheduleReport | null) => void;
 
   // Schedule editing
@@ -135,6 +143,8 @@ export const useStore = create<AppState>((set) => {
     status: "Load a P6 XER or MS Project schedule and an IFC model, or open the demo.",
     busy: false,
     collapsedWbs: new Set(),
+    ganttFilter: { text: "", kind: "all" },
+    ganttTracking: false,
     lastUpdate: null,
     sideTab: "selection",
     leftTab: "gantt",
@@ -187,6 +197,8 @@ export const useStore = create<AppState>((set) => {
     setSim: (patch) => set((s) => ({ sim: { ...s.sim, ...patch } })),
     setStatus: (status, busy = false) => set({ status, busy }),
     setCollapsedWbs: (ids) => set({ collapsedWbs: ids }),
+    setGanttFilter: (f) => set((st) => ({ ganttFilter: { ...st.ganttFilter, ...f } })),
+    setGanttTracking: (on) => set({ ganttTracking: on }),
     toggleWbs: (id) =>
       set((s) => {
         const next = new Set(s.collapsedWbs);

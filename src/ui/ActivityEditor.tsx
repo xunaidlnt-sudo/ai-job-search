@@ -77,7 +77,10 @@ export function deleteSelectedActivity() {
   st.selectActivity(null);
 }
 
-export function ActivityEditor() {
+/** Parts of the activity editor; P6's detail tabs show one or two at a time. */
+export type EditorSection = "general" | "status" | "dates" | "predecessors" | "successors" | "resources" | "codes";
+
+export function ActivityEditor({ only, bare }: { only?: EditorSection[]; bare?: boolean } = {}) {
   const st = useStore();
   const { schedule, selectedActivity } = st;
   const act = schedule?.activities.find((a) => a.id === selectedActivity) ?? null;
@@ -92,7 +95,8 @@ export function ActivityEditor() {
   const newActivity = () => addActivityAfterSelected();
 
   return (
-    <div className="editor">
+    <div className={`editor ${bare ? "bare" : ""}`}>
+      {!bare && (
       <div className="editor-bar">
         <button onClick={newActivity}>+ New activity{act ? " after this" : ""}</button>
         <button
@@ -103,12 +107,14 @@ export function ActivityEditor() {
         </button>
         <span className="muted">{act ? `${act.code} · ${act.status.replace("-", " ")}` : "Pick an activity in the Gantt"}</span>
       </div>
-      {act && <Fields act={act} hpd={hpd} />}
+      )}
+      {act ? <Fields act={act} hpd={hpd} only={only} /> : bare ? <div className="empty">Select an activity.</div> : null}
     </div>
   );
 }
 
-function Fields({ act, hpd }: { act: Activity; hpd: number }) {
+function Fields({ act, hpd, only }: { act: Activity; hpd: number; only?: EditorSection[] }) {
+  const show = (k: EditorSection) => !only || only.includes(k);
   const st = useStore();
   const terms = useTerms();
   const schedule = st.schedule!;
@@ -140,6 +146,7 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
 
   return (
     <div className="stack editor-body">
+      {show("general") && (
       <section className="grid2">
         <label>
           {terms.activityId}
@@ -182,7 +189,9 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
           </select>
         </label>
       </section>
+      )}
 
+      {show("status") && (
       <section className="grid2">
         <h4 className="span2">Duration and progress</h4>
         <label>
@@ -259,7 +268,9 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
           />
         </label>
       </section>
+      )}
 
+      {show("dates") && (
       <section>
         <h4>Dates</h4>
         <table className="props">
@@ -288,7 +299,9 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
           </tbody>
         </table>
       </section>
+      )}
 
+      {show("predecessors") && (
       <section>
         <h4>Predecessors ({preds.length})</h4>
         <RelTable rels={preds} other={(r) => byId.get(r.predecessorId)} hpd={hpd} />
@@ -312,12 +325,16 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
           ))}
         </datalist>
       </section>
+      )}
 
+      {show("successors") && (
       <section>
         <h4>Successors ({succs.length})</h4>
         <RelTable rels={succs} other={(r) => byId.get(r.successorId)} hpd={hpd} />
       </section>
+      )}
 
+      {show("resources") && (
       <section>
         <h4>Resources and cost</h4>
         {assignments.length > 0 && (
@@ -391,7 +408,9 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
           <p className="muted">No resources in this schedule. Import a P6 or MS Project file that has them.</p>
         )}
       </section>
+      )}
 
+      {show("codes") && (
       <section>
         <h4>User fields</h4>
         {Object.entries(act.userFields ?? {}).map(([k, v]) => (
@@ -427,6 +446,7 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
         </div>
         <p className="muted">User fields can drive link rules (Rules tab → activity field).</p>
       </section>
+      )}
     </div>
   );
 }

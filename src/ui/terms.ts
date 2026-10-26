@@ -123,17 +123,17 @@ export function useTerms(): Terms {
 export const MODE_INFO: Record<InterfaceMode, { title: string; blurb: string; points: string[] }> = {
   p6: {
     title: "P6 style",
-    blurb: "For planners who work in Primavera P6.",
-    points: ["Activity table and Gantt across the top", "Activity details tabs underneath", "Activity ID, WBS, Data Date, Total Float", "3D view in its own panel when you need it"],
+    blurb: "Laid out like Primavera P6 Professional's Activities window.",
+    points: ["Menu bar, Directory bar left, Command bar right", "Activity table and Gantt with WBS bands", "Activity Details tabs: General, Status, Resources, Predecessors, Successors, Codes", "Schedule, data date and total float as in P6"],
   },
   msp: {
     title: "MS Project style",
-    blurb: "For teams who know Microsoft Project.",
-    points: ["Ribbon-style tabs: Task, Resource, Report, View", "Gantt with outline numbers and Predecessors column", "Task, Status Date, Total Slack", "Task form below the Gantt"],
+    blurb: "Laid out like Microsoft Project's Gantt Chart view.",
+    points: ["Ribbon: Task, Resource, Report, Project, View", "Timeline above the Gantt Chart", "Row numbers, Duration, Predecessors, Resource Names", "Task Form (Details), Tracking Gantt and Resource Usage"],
   },
   "4d": {
     title: "4D style",
     blurb: "Model-first, for 4D planning and reviews.",
-    points: ["3D model in the middle", "Gantt on the left, tools on the right", "Timeline with play controls along the bottom", "Linking, profiles and paths one click away"],
+    points: ["3D model in the middle", "Gantt on the left, linking tools on the right", "Timeline with play controls along the bottom", "Linking, profiles and paths one click away"],
   },
 };

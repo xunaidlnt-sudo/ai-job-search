@@ -47,7 +47,8 @@ const T = (
   code,
   name,
   wbs,
-  start: `${start} 07:00`,
+  // Start milestones sit at the start of the day, finish milestones at its end.
+  start: extra.type === "TT_FinMile" ? `${start} 16:00` : `${start} 07:00`,
   finish: extra.type === "TT_Mile" ? `${finish} 07:00` : `${finish} 16:00`,
   status,
   pct,
