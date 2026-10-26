@@ -1,0 +1,121 @@
+# Each document type lists its approval steps in signing order.
+# The document moves to the next step only after the current one is approved,
+# and each approval stamps that approver's signature at the step's placeholder.
+#
+# Signature placement (per step, under `signature:`):
+#   mode: text     find a text token in the document, e.g. {{SIGN_APPROVED}}   (PDF and Word)
+#   mode: field    use a PDF form field with this name; the signature fills
+#                  the field's box and the field is removed                   (PDF only)
+#   mode: fixed    a fixed box: page + rect_mm [x, y, width, height],
+#                  measured from the page's top-left corner                    (PDF only; for scanned PDFs)
+#
+#   occurrence:    all | first | last | N   which matches to sign (default all -
+#                  handy for initials in every page footer)
+#   width_mm / height_mm   size of the signature box (image keeps its proportions)
+#   anchor:        over | above | below | left | right  - where the box sits
+#                  relative to the placeholder (PDF only)
+#   offset_mm:     [dx, dy] nudge after anchoring (PDF only; +x right, +y down)
+#   variant:       which of the user's signatures to use: full, initials, ...
+#   caption:       text under the signature. Fields: {name} {designation} {date}
+#                  {label} {email}. Use "" for none.
+#   date_format:   strftime format for {date}
+#   remove_placeholder: erase the token text (default true; PDF text mode)
+#   required:      fail the upload if the placeholder is missing (default true)
+#
+# A step can use `signatures:` (a list of the above) instead of `signature:`
+# when one approval should place more than one mark.
+#
+# Who approves a step: role (anyone with that role), user (one named person),
+# or assignable: true (the submitter picks the person when uploading; combine
+# with role to limit the choices).
+
+document_types:
+  purchase_order:
+    name: Purchase Order
+    distinct_approvers: true      # the same person cannot sign two steps
+    append_audit_page: true       # add an approval record page once fully signed
+    steps:
+      - id: prepared
+        label: Prepared by
+        role: procurement
+        signature:
+          placeholder: "{{SIGN_PREPARED}}"
+          width_mm: 38
+          height_mm: 14
+          caption: "{name}\n{date}"
+      - id: checked
+        label: Checked by
+        role: finance
+        signature:
+          placeholder: "{{SIGN_CHECKED}}"
+          width_mm: 38
+          height_mm: 14
+          caption: "{name}, {designation}\n{date}"
+      # One click can place several marks: here the director's full signature
+      # on the approval line plus their initials in every page footer.
+      - id: approved
+        label: Approved by
+        role: director
+        signatures:
+          - placeholder: "{{SIGN_APPROVED}}"
+            width_mm: 42
+            height_mm: 16
+            caption: "{name}\n{designation}\n{date}"
+          - placeholder: "{{INITIALS_APPROVER}}"
+            occurrence: all
+            variant: initials
+            width_mm: 14
+            height_mm: 8
+            caption: ""
+
+  payment_voucher:
+    name: Payment Voucher (PDF form)
+    append_audit_page: true
+    steps:
+      - id: accountant
+        label: Verified by (Accounts)
+        role: finance
+        signature:
+          mode: field               # the signature fills the PDF form field's box
+          placeholder: Sig_Accounts
+          caption: "{name}  {date}"
+      - id: director
+        label: Authorised by
+        role: director
+        signature:
+          mode: field
+          placeholder: Sig_Director
+          caption: "{name}, {designation}  {date}"
+
+  leave_request:
+    name: Leave Request (Word)
+    output_pdf: false             # true = convert to PDF with LibreOffice after the last approval
+    steps:
+      - id: line_manager
+        label: Line manager
+        role: manager
+        assignable: true          # employee picks their own manager
+        signature:
+          placeholder: "{{SIGN_MANAGER}}"
+          width_mm: 35
+          height_mm: 12
+          caption: "{name}  {date}"
+      - id: hr
+        label: HR
+        role: hr
+        signature:
+          placeholder: "{{SIGN_HR}}"
+          width_mm: 35
+          height_mm: 12
+
+  scanned_form:
+    name: Scanned Form (fixed position)
+    steps:
+      - id: approver
+        label: Approver
+        role: director
+        signature:
+          mode: fixed
+          page: -1                # last page
+          rect_mm: [130, 245, 50, 18]
+          caption: "{name} {date}"

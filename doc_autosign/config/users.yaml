@@ -1,0 +1,47 @@
+# Approvers and their signatures.
+#
+# signatures: map of variant -> image file (relative to this folder or absolute).
+# Users can also upload their own through the web page "My signature"; an
+# uploaded image takes priority over the path here. Raw JPG scans are fine -
+# the white paper is made transparent automatically.
+#
+# password_hash: create with `python -m autosign hash-password`.
+# THE HASHES BELOW ARE FOR THE PASSWORD "demo". Replace them (or wire in your
+# SSO) before real use.
+
+users:
+  ali.procurement:
+    name: Ali Hassan
+    email: ali@example.com
+    designation: Procurement Officer
+    roles: [procurement]
+    password_hash: "scrypt:32768:8:1$bmsJoLNVyOmG9xI9$51ee85c777686b116e14edef57e4dc52fd771652a7d27fb65241c4fed7e71fc9eca3a8305500bb56cb31b5754dd91c3907c77a05dc71c84b38306c8f7a3c58b8"
+
+  priya.finance:
+    name: Priya Nair
+    email: priya@example.com
+    designation: Finance Controller
+    roles: [finance, manager]
+    password_hash: "scrypt:32768:8:1$bmsJoLNVyOmG9xI9$51ee85c777686b116e14edef57e4dc52fd771652a7d27fb65241c4fed7e71fc9eca3a8305500bb56cb31b5754dd91c3907c77a05dc71c84b38306c8f7a3c58b8"
+
+  sara.director:
+    name: Sara Khan
+    email: sara@example.com
+    designation: Director of Operations
+    roles: [director, manager]
+    admin: true
+    password_hash: "scrypt:32768:8:1$bmsJoLNVyOmG9xI9$51ee85c777686b116e14edef57e4dc52fd771652a7d27fb65241c4fed7e71fc9eca3a8305500bb56cb31b5754dd91c3907c77a05dc71c84b38306c8f7a3c58b8"
+
+  omar.hr:
+    name: Omar Farooq
+    email: omar@example.com
+    designation: HR Manager
+    roles: [hr]
+    password_hash: "scrypt:32768:8:1$bmsJoLNVyOmG9xI9$51ee85c777686b116e14edef57e4dc52fd771652a7d27fb65241c4fed7e71fc9eca3a8305500bb56cb31b5754dd91c3907c77a05dc71c84b38306c8f7a3c58b8"
+
+  john.staff:
+    name: John Mathew
+    email: john@example.com
+    designation: Site Engineer
+    roles: []
+    password_hash: "scrypt:32768:8:1$bmsJoLNVyOmG9xI9$51ee85c777686b116e14edef57e4dc52fd771652a7d27fb65241c4fed7e71fc9eca3a8305500bb56cb31b5754dd91c3907c77a05dc71c84b38306c8f7a3c58b8"
