@@ -49,6 +49,15 @@ jobs:
       - run: npm test
       - run: npm run build
 
+      # GitHub's macOS runners index and scan freshly mounted disk images, which
+      # keeps the DMG busy so "hdiutil detach" fails. Stop both before building.
+      - name: Free hdiutil on macOS runners
+        if: runner.os == 'macOS'
+        run: |
+          sudo mdutil -a -i off || true
+          sudo pkill -9 XProtect >/dev/null 2>&1 || true
+          for i in $(seq 1 20); do pgrep XProtect >/dev/null || break; sleep 3; done
+
       - name: Build installer
         run: npx electron-builder ${{ matrix.target }} --publish never
         env:
