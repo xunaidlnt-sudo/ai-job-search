@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef } from "react";
 import { activeAt, scheduleRange } from "../core/simulation";
 import { DAY, fmtDate, useStore } from "./store";
+import { useTerms } from "./terms";
 
 const SPEEDS = [1, 3, 7, 14, 30, 60];
 
 export function Timeline() {
   const schedule = useStore((s) => s.schedule);
+  const terms = useTerms();
   const time = useStore((s) => s.time);
   const playing = useStore((s) => s.playing);
   const speed = useStore((s) => s.speed);
@@ -58,8 +60,8 @@ export function Timeline() {
         <button title="Forward 1 week" onClick={() => step(7)}>▶▶</button>
         <button title="Go to finish" onClick={() => setTime(range.finish)}>⏭</button>
         {schedule.dataDate !== null && (
-          <button title="Jump to data date" onClick={() => setTime(schedule.dataDate!)}>
-            Data date
+          <button title={`Jump to ${terms.dataDate.toLowerCase()}`} onClick={() => setTime(schedule.dataDate!)}>
+            {terms.dataDate}
           </button>
         )}
         <label>

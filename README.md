@@ -2,9 +2,11 @@
 
 # Stratum 4D
 
-Stratum links a Primavera P6 schedule to an IFC building model and plays back the construction sequence over time. It runs in the browser; a desktop build is planned.
+**Developed by [Junaid Quamar](https://www.linkedin.com/in/junaidquamar/), Senior Planning Engineer.**
 
-Release 0.2 covers phases 1 to 4 of the roadmap:
+Stratum links a Primavera P6 schedule to an IFC building model and plays back the construction sequence over time. It runs in the browser, as a desktop app for Windows, macOS and Linux, or on a team server.
+
+Release 0.3 adds three interface modes, a project database, live Primavera P6 connections, and a dashboard and report builder with scheduled email. Everything from release 0.2 (phases 1 to 4 of the roadmap) is still there:
 
 **4D**
 - **Schedules**: Primavera P6 XER (activities, WBS, logic, codes, UDFs, calendars, constraints, actuals, baseline, resources and costs) and Microsoft Project XML.
@@ -40,6 +42,57 @@ A built-in demo (two-storey RC frame, 14-activity resource-loaded P6 schedule, a
 
 Planned work and how Stratum compares with SYNCHRO 4D Pro's public feature set are in [docs/PARITY.md](docs/PARITY.md). Development follows [docs/CLEAN_ROOM.md](docs/CLEAN_ROOM.md).
 
+## Interface modes
+
+The first time Stratum starts, a short setup asks which layout you want. The engine, the data and every feature are the same in all three; only the layout, the wording and the default columns change. Switch at any time in **⚙ Settings → Interface**.
+
+| Mode | Layout | Wording |
+|---|---|---|
+| **P6 style** | Activity table and Gantt across the top, 3D view beside it, activity detail tabs (General, Cost & EVM, Resources, Quantities, 4D tools) underneath | Activity ID, Original Duration, Total Float, Data Date |
+| **MS Project style** | Ribbon tabs (File, Task, Resource, Report, Project, View), timeline strip at the top, Gantt with row numbers and a Predecessors column, task form underneath | ID, Task Name, Duration, Total Slack, Status Date, Calculate |
+| **4D style** | 3D model in the middle, Gantt on the left, linking tools on the right, timeline along the bottom | Task ID, Focus date, Reschedule |
+
+## Project database
+
+Projects are saved to a database instead of loose files (**Save** or `Ctrl+S`, **Projects** to open). Each save gets a version number; if someone else saved the project after you opened it, Stratum refuses to overwrite their work and offers *Save as new*.
+
+- **Desktop app**: a local SQLite file in your user folder.
+- **Browser**: the browser's own storage (IndexedDB).
+- **Stratum Server**: one PostgreSQL database for the whole team, with sign-in and three roles: admin (users and settings), planner (projects, dashboards, reports) and viewer (read and receive reports).
+
+`.stratum.json` project files still work under **File**.
+
+## Primavera P6 connections
+
+Desktop app and Stratum Server only (the browser cannot reach a P6 server directly). Add connections in **Settings → Primavera P6**, then use **Import from P6**.
+
+- **P6 EPPM** (web services REST API, 20.x and later): sign in with a P6 user or a bearer token. Stratum reads projects, WBS, activities, relationships, calendars, codes, UDFs, resources and assignments. **Update P6** sends progress back: actual start and finish, % complete and remaining duration. Activities added in Stratum are listed rather than pushed; take those over with an XER.
+- **P6 Professional database**: SQL Server, Oracle or SQLite. Read-only by design, so use a read-only database login. Deleted rows and baseline copies are skipped. To return dates to P6 Professional, export an XER and import it with *Update Existing Project*.
+
+Passwords are stored encrypted: with the operating-system keychain in the desktop app, and with AES-GCM keyed by `STRATUM_SECRET` on the server. They are never sent back to the browser.
+
+## Dashboards and reports
+
+**Dashboards** opens a Power BI-style builder. Start from a template or a blank page, then add, resize, drag and configure widgets:
+
+- KPI tiles, cost/labour S-curve, resource histogram, activity tables (late, critical, starting soon, look-ahead), portfolio table across all projects, quantity curve, free text;
+- **EPC progress report** pieces: a key-figures table, the *Progress {data date}* banner, a weighted progress table (Cum. BL Plan %, Cum. Actual %, Variance wrt BL) with a shaded **TOTAL** row, a progress S-curve with monthly or weekly planned-vs-achieved bars, and slicer buttons by discipline, package or any activity code.
+
+Progress is weighted by budgeted cost, labour hours, duration or equally, and grouped by WBS level 1 or 2, any activity code or any user field. You can type your own weightage per group (e.g. General 3%, Engineering 7%, Procurement 50%, Construction 40%); the TOTAL row then uses those weights.
+
+Every dashboard prints to PDF (A4 landscape) and exports to Excel (summary, progress table, progress S-curve, late and critical, 3-week look-ahead, all activities, S-curve data, weekly resources, portfolio).
+
+**Email reports**: send a dashboard now, or on a daily, weekly or monthly schedule, to any To/Cc list, as PDF, Excel or both. Subjects take `{project}`, `{date}` and `{datadate}`. Mail goes out through your SMTP server (Settings → Email); each run is logged with its result. Schedules run while the desktop app is open, or around the clock on a Stratum Server.
+
+## Stratum Server (team mode)
+
+```bash
+cp .env.example .env      # set STRATUM_SECRET and POSTGRES_PASSWORD
+docker compose up -d      # PostgreSQL 16 + Stratum Server on port 8080
+```
+
+Open `http://<server>:8080`, create the first admin account, then point each user's setup (or Settings → Database) at that address. Without Docker: `npm run build && npm run build:server`, then `DATABASE_URL=postgres://… STRATUM_SECRET=… npm run server`. Leaving out `DATABASE_URL` uses a SQLite file (`STRATUM_DB_FILE`). PDF reports on the server need Chromium; the Docker image includes it.
+
 ## Running it
 
 Needs Node.js 20 or newer.
@@ -47,7 +100,7 @@ Needs Node.js 20 or newer.
 ```bash
 npm install
 npm run dev        # http://localhost:5173
-npm test           # unit tests for the XER parser, linking and simulation engine
+npm test           # engine, database, P6 connector, server and report tests
 npm run build      # production build in dist/
 ```
 
@@ -77,10 +130,14 @@ Brand files live in `brand/`: the wordmark for light and dark backgrounds, and t
 ## Layout
 
 ```
-src/core/      schedule model, XER parser, linking rules, profiles, simulation, project file, demo data
+src/core/      schedule model, XER/MSPDI, CPM, EVM, progress weighting, reporting model, demo data
 src/viewer/    three.js viewport and IFC loader
-src/ui/        React UI: Gantt, timeline, side panel, toolbar
-tests/         vitest unit tests
+src/ui/        React UI: the three layouts, Gantt, timeline, dialogs, dashboards and widgets
+src/backend/   where data lives: browser storage, desktop app, or Stratum Server
+src/services/  database repository (SQLite/PostgreSQL), SMTP, Excel, report scheduler, P6 connectors
+src/server/    Stratum Server (Fastify): API, sign-in and roles, PDF rendering
+electron/      desktop shell and its local services
+tests/         vitest tests
 docs/          parity tracker and clean-room policy
 ```
 
@@ -91,7 +148,15 @@ docs/          parity tracker and clean-room policy
 - XER export has been checked by re-importing into Stratum, not yet in a live P6 database: use P6's import preview the first time.
 - Very large IFC files (hundreds of MB) still load slowly; GPU instancing and level-of-detail are planned.
 - Video export is WebM only (browser MediaRecorder).
+- The P6 EPPM connector has been tested against a mock of the documented REST API, and the P6 database reader against SQL Server 2022 and SQLite copies of the P6 schema. Try both against a test P6 database before production use.
+- Oracle P6 databases use the same queries as SQL Server but have not been run against a live Oracle instance yet.
+
+## Author
+
+Stratum 4D was conceived, specified and directed by **Junaid Quamar**, Senior Planning Engineer (Primavera P6 project controls and cost engineering for HV substation, transmission and rail electrification projects). The feature set, priorities and planning workflows come from Junaid's project-controls practice.
+
+- LinkedIn: https://www.linkedin.com/in/junaidquamar/
 
 ## Licence
 
-Proprietary; all rights reserved. Third-party libraries keep their own licences (three.js MIT, web-ifc MPL-2.0, React MIT, zustand MIT).
+Proprietary. Copyright © 2026 Junaid Quamar. All rights reserved. Third-party libraries keep their own licences (three.js MIT, web-ifc MPL-2.0, React MIT, zustand MIT).

@@ -62,6 +62,12 @@ export interface AppState {
   scheduleReport: ScheduleReport | null;
   /** Path being drawn in the viewport. */
   pathDraft: [number, number, number][] | null;
+  /** Database identity of the open project (null = not saved to the database yet). */
+  currentProjectId: string | null;
+  currentVersion: number | null;
+  /** Full-screen views over the workspace. */
+  view: "workspace" | "dashboards";
+  dialog: null | "projects" | "settings" | "p6";
 
   setLastUpdate: (u: AppState["lastUpdate"]) => void;
   setSideTab: (t: SideTab) => void;
@@ -72,6 +78,9 @@ export interface AppState {
   setGroups: (g: ElementGroup[]) => void;
   setPaths: (p: MotionPath[]) => void;
   setPathDraft: (p: [number, number, number][] | null) => void;
+  setCurrentProject: (id: string | null, version: number | null) => void;
+  setView: (v: AppState["view"]) => void;
+  setDialog: (d: AppState["dialog"]) => void;
   setLinks: (links: Link[]) => void;
   setRules: (rules: LinkRule[]) => void;
   setProfiles: (p: AppearanceProfile[]) => void;
@@ -130,6 +139,10 @@ export const useStore = create<AppState>((set) => {
     scheduleDirty: false,
     scheduleReport: null,
     pathDraft: null,
+    currentProjectId: null,
+    currentVersion: null,
+    view: "workspace",
+    dialog: null,
 
     setLastUpdate: (lastUpdate) => set({ lastUpdate }),
     setSideTab: (sideTab) => set({ sideTab }),
@@ -158,6 +171,9 @@ export const useStore = create<AppState>((set) => {
     setGroups: (groups) => set((st) => ({ groups, elements: derive(st.baseElements, st.segments, groups) })),
     setPaths: (paths) => set({ paths }),
     setPathDraft: (pathDraft) => set({ pathDraft }),
+    setCurrentProject: (currentProjectId, currentVersion) => set({ currentProjectId, currentVersion }),
+    setView: (view) => set({ view }),
+    setDialog: (dialog) => set({ dialog }),
     setLinks: (links) => set({ links }),
     setRules: (rules) => set({ rules }),
     setProfiles: (profiles) => set({ profiles }),

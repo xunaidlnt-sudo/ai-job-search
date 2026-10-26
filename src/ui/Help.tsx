@@ -51,6 +51,12 @@ export function Help({ onClose, onDemo }: { onClose: () => void; onDemo: () => v
             <tr><td><kbd>?</kbd></td><td>This help</td></tr>
           </tbody>
         </table>
+        <p className="credit">
+          Stratum 4D was developed by <b>Junaid Quamar</b>, Senior Planning Engineer. 
+          <a href="https://www.linkedin.com/in/junaidquamar/" target="_blank" rel="noreferrer">
+            LinkedIn
+          </a>
+        </p>
         <div className="row" style={{ marginTop: 16, justifyContent: "flex-end" }}>
           <button onClick={onDemo}>Try the demo</button>
           <button className="primary" onClick={onClose}>Close</button>

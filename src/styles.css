@@ -55,9 +55,9 @@ select, input:not([type]), input[type="text"] { border: 1px solid var(--line); b
 .gantt-grid { position: relative; }
 .gantt-head { position: sticky; top: 0; height: 24px; background: #f0f2f5; border-bottom: 1px solid var(--line); z-index: 3; font-weight: 600; }
 .gantt-head .gantt-cols { background: #f0f2f5; }
-.gantt-cols { display: flex; position: sticky; left: 0; top: 0; height: 24px; align-items: center; width: 466px; background: inherit; z-index: 2; border-right: 1px solid var(--line); }
+.gantt-cols { display: flex; position: sticky; left: 0; top: 0; height: 24px; align-items: center; background: inherit; z-index: 2; border-right: 1px solid var(--line); }
 .gantt-cols span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 4px; flex: none; }
-.gantt-scale { position: absolute; left: 466px; top: 0; height: 24px; right: 0; }
+.gantt-scale { position: absolute; top: 0; height: 24px; right: 0; }
 .gantt-scale span { position: absolute; top: 4px; white-space: nowrap; font-size: 11px; color: var(--muted); border-left: 1px solid var(--line); padding-left: 3px; }
 .gantt-row { position: absolute; left: 0; width: 100%; height: 24px; border-bottom: 1px solid #f0f2f5; cursor: pointer; background: #fff; }
 .gantt-row:hover, .gantt-row:hover .gantt-cols { background: #f7f9fc; }
@@ -186,3 +186,195 @@ table.data th { text-align: left; color: var(--muted); font-weight: 600; border-
 table.data td { border-bottom: 1px solid #f0f2f5; padding: 3px 4px; }
 table.data td.good { color: #2e7d32; }
 table.data td.bad { color: #c62828; }
+.credit { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+
+/* ---------- Shared layout pieces ---------- */
+.viewport-wrap { position: relative; width: 100%; height: 100%; min-height: 0; }
+.center > .viewport-wrap { position: absolute; inset: 0; }
+.conn { font-size: 11px; margin-right: 6px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pane-title { padding: 4px 8px; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border-bottom: 1px solid var(--line); background: #f7f8fa; }
+.row { display: flex; gap: 8px; align-items: center; }
+.row.end { justify-content: flex-end; margin-top: 12px; }
+.row.wrap { flex-wrap: wrap; }
+.stack { display: flex; flex-direction: column; gap: 8px; }
+.form label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.form label.check, label.check { flex-direction: row; align-items: center; gap: 6px; color: var(--text); font-size: 13px; }
+.form input, .form select { color: var(--text); }
+ul.list { list-style: none; padding: 0; margin: 0; }
+ul.list li { display: flex; gap: 6px; align-items: center; padding: 5px 0; border-bottom: 1px solid #f0f2f5; }
+table.data tr.current td { background: var(--accent-soft); }
+
+/* ---------- P6 layout: activity table + Gantt on top, details below ---------- */
+.app > .layout-p6, .app > .layout-msp { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.p6-top { flex: 1 1 60%; min-height: 0; display: grid; grid-template-columns: minmax(520px, 1fr) minmax(280px, 34%); }
+.p6-gantt { background: var(--panel); border-right: 1px solid var(--line); min-height: 0; display: flex; flex-direction: column; }
+.p6-gantt > .gantt { flex: 1; min-height: 0; }
+.p6-view, .msp-view { position: relative; min-height: 0; }
+.p6-view > .viewport-wrap, .msp-view > .viewport-wrap { position: absolute; inset: 0; }
+.p6-details, .msp-form { flex: 0 0 38%; min-height: 160px; background: var(--panel); border-top: 2px solid var(--line); display: flex; flex-direction: column; }
+.p6-details > .tabs, .msp-form > .tabs { flex: none; justify-content: flex-start; }
+.p6-details > .tabs button, .msp-form > .tabs button { flex: none; padding: 4px 14px; }
+.details-body { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; }
+.details-body > * { flex: 1; min-height: 0; }
+.mode-p6 .toolbar { background: #eef1f5; }
+.mode-p6 .gantt-head, .mode-p6 .gantt-head .gantt-cols { background: #e3e8ef; }
+
+/* ---------- MS Project layout: ribbon, timeline strip, Gantt, task form ---------- */
+.ribbon { background: var(--panel); border-bottom: 1px solid var(--line); }
+.ribbon-tabs { display: flex; align-items: center; gap: 2px; padding: 4px 10px 0; background: #217346; color: #fff; }
+.mode-msp .ribbon-tabs { background: #2b579a; }
+.ribbon-tabs .brand { background: #fff; border-radius: 6px; padding: 2px 6px; margin: 0 10px 4px 0; }
+.ribbon-tabs .brand img { height: 22px; }
+.ribbon-tabs > button { background: transparent; border: none; color: #e9eef7; border-radius: 6px 6px 0 0; padding: 5px 14px; }
+.ribbon-tabs > button.active { background: var(--panel); color: var(--text); }
+.ribbon-tabs > button:hover:not(.active) { background: rgba(255, 255, 255, 0.12); }
+.ribbon-tabs .muted { color: #d6e0f0; }
+.ribbon-tabs .spacer + .conn + button, .ribbon-tabs .spacer ~ button { background: #fff; color: var(--text); border-radius: 6px; margin-bottom: 4px; padding: 3px 10px; }
+.ribbon-body { border-bottom: none; min-height: 40px; }
+.msp-timeline { background: var(--panel); border-bottom: 1px solid var(--line); }
+.msp-top { flex: 1 1 60%; min-height: 0; display: grid; grid-template-columns: minmax(520px, 1fr) minmax(260px, 32%); }
+.msp-top:has(.msp-tools) { grid-template-columns: minmax(480px, 1fr) minmax(240px, 28%) 300px; }
+.msp-gantt { background: var(--panel); border-right: 1px solid var(--line); min-height: 0; display: flex; flex-direction: column; }
+.msp-gantt > .gantt { flex: 1; min-height: 0; }
+.msp-tools { background: var(--panel); border-left: 1px solid var(--line); min-height: 0; overflow: hidden; }
+.mode-msp .gantt-head, .mode-msp .gantt-head .gantt-cols { background: #dfe7f3; }
+
+@media (max-width: 900px) {
+  .p6-top, .msp-top, .msp-top:has(.msp-tools) { grid-template-columns: 1fr; grid-template-rows: 50vh 40vh auto; }
+  .layout-p6, .layout-msp { overflow: auto; }
+  .p6-details, .msp-form { flex: none; min-height: 50vh; }
+}
+
+/* ---------- Setup wizard, settings, projects ---------- */
+.help.wizard { max-width: 780px; }
+.help.settings { max-width: 860px; padding: 14px 18px; }
+.settings-head { display: flex; align-items: center; gap: 8px; }
+.settings-head h2 { margin: 0; flex: 1; }
+.help.settings > .tabs { padding: 6px 0; justify-content: flex-start; }
+.help.settings > .tabs button { flex: none; padding: 4px 12px; }
+.settings-body { padding-top: 10px; min-height: 240px; }
+.mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 10px 0; }
+.mode-cards.two { grid-template-columns: repeat(2, 1fr); }
+.mode-card { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; text-align: left; white-space: normal; padding: 12px; border-radius: 10px; border: 1.5px solid var(--line); }
+.mode-card b { font-size: 15px; }
+.mode-card ul { margin: 6px 0 0; padding-left: 18px; font-size: 12px; color: var(--text); }
+.mode-card.active { border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 0 2px rgba(31, 111, 235, 0.15); }
+.server-form input { flex: 1; }
+@media (max-width: 700px) { .mode-cards, .mode-cards.two { grid-template-columns: 1fr; } }
+
+/* ---------- Dashboards ---------- */
+.overlay-view { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; }
+.dash-root { flex: 1; min-height: 0; display: grid; grid-template-columns: 240px 1fr; }
+.dash-list { background: var(--panel); border-right: 1px solid var(--line); padding: 8px; overflow: auto; display: flex; flex-direction: column; gap: 4px; }
+.dash-list > .row { margin-bottom: 6px; }
+.dash-list > button { text-align: left; white-space: normal; }
+.dash-item { display: flex; flex-direction: column; align-items: flex-start; gap: 0; border-color: transparent; }
+.dash-item .muted { font-size: 11px; }
+.dash-main { min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
+.dash-bar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.dash-bar h2 { margin: 0; font-size: 17px; }
+.dash-title-input { font-size: 16px !important; font-weight: 600; min-width: 260px; }
+.dash-body { flex: 1; min-height: 0; display: flex; overflow: hidden; }
+.dash-canvas { flex: 1; overflow: auto; padding: 12px; }
+.dash-grid { display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: minmax(52px, auto); gap: 10px; }
+.widget { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; display: flex; flex-direction: column; min-width: 0; overflow: hidden; }
+.widget > header { display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-bottom: 1px solid #f0f2f5; }
+.widget-title { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.widget-tools { display: inline-flex; gap: 4px; align-items: center; }
+.widget-tools select { font-size: 11px; padding: 1px 4px; }
+.widget-body { flex: 1; padding: 8px 10px; overflow: auto; min-height: 0; }
+.widget.w3 { grid-column: span 3; } .widget.w4 { grid-column: span 4; } .widget.w6 { grid-column: span 6; }
+.widget.w8 { grid-column: span 8; } .widget.w12 { grid-column: span 12; }
+.widget.h1 { grid-row: span 2; } .widget.h2 { grid-row: span 4; } .widget.h3 { grid-row: span 6; }
+.widget.dragging { opacity: 0.5; }
+.grip { cursor: grab; color: var(--muted); }
+.add-widget { flex-direction: row; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px; border-style: dashed; background: transparent; }
+.kpi { display: flex; flex-direction: column; justify-content: center; height: 100%; }
+.kpi-value { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.15; }
+.kpi-value.good { color: #2e7d32; } .kpi-value.bad { color: #c62828; }
+.kpi-hint { font-size: 12px; margin-top: 2px; }
+.widget-text { white-space: pre-wrap; }
+.widget-settings { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 6px 10px; padding: 8px 10px; background: #f7f9fc; border-bottom: 1px solid var(--line); font-size: 12px; }
+.widget-settings label { display: flex; flex-direction: column; gap: 2px; color: var(--muted); }
+.widget-settings .span-all { grid-column: 1 / -1; }
+.weightage { display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+.weightage label.row { flex-direction: row; color: var(--text); }
+.weightage input { width: 64px; }
+.info-editor { display: flex; flex-direction: column; gap: 4px; }
+.email-panel { width: 360px; flex: none; border-left: 1px solid var(--line); background: var(--panel); overflow: auto; padding: 10px 12px; }
+.email-panel h3 { margin: 0 0 6px; font-size: 14px; }
+.sched-card { border: 1px solid var(--line); border-radius: 8px; padding: 8px; margin-bottom: 8px; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.email-panel .form textarea { width: 100%; font: inherit; border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+@media (max-width: 900px) {
+  .dash-root { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .dash-list { flex-direction: row; overflow-x: auto; border-right: none; border-bottom: 1px solid var(--line); }
+  .widget.w3, .widget.w4, .widget.w6, .widget.w8 { grid-column: span 12; }
+  .dash-body { flex-direction: column; overflow: auto; }
+  .email-panel { width: auto; border-left: none; border-top: 1px solid var(--line); }
+}
+
+/* Slicer (Power BI style buttons) */
+.slicer { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start; }
+.slicer button { border-radius: 4px; padding: 3px 10px; font-size: 12px; }
+.slicer button.on { background: #0b2a8a; border-color: #0b2a8a; color: #fff; }
+.slicer button:disabled { opacity: 1; cursor: default; }
+
+/* Progress table and info table (classic look) */
+table.ptable, table.itable { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13px; }
+.ptable th, .ptable td, .itable td { padding: 5px 8px; border-bottom: 1px solid var(--line); text-align: right; }
+.ptable th { font-weight: 600; color: var(--muted); }
+.ptable .ptable-dim, .itable td:first-child { text-align: left; }
+.ptable-total td { font-weight: 700; background: #eef3fa; }
+.pscurve { display: flex; flex-direction: column; gap: 4px; }
+
+/* ---------- Report theme (EPC monthly progress report look) ---------- */
+.theme-report { --report-navy: #0b2a8a; --report-rule: #7f9bd6; --report-total: #dbe5f1; background: #fff; }
+.theme-report .widget { border-radius: 0; border: none; box-shadow: none; }
+.theme-report .widget > header { border-bottom: none; padding: 4px 2px; }
+.theme-report .widget-title { color: var(--report-navy); font-size: 13px; }
+.theme-report .widget-body { padding: 4px 2px; }
+.theme-report table.ptable, .theme-report table.itable { font-size: 14px; border-top: 2px solid var(--report-navy); border-bottom: 2px solid var(--report-navy); }
+.theme-report .ptable th { color: var(--report-navy); font-weight: 700; border-bottom: 1.5px solid var(--report-navy); background: #fff; }
+.theme-report .ptable td, .theme-report .itable td { border-bottom: 1px solid var(--report-rule); }
+.theme-report .ptable-total td { background: var(--report-total); color: var(--report-navy); border-top: 1.5px solid var(--report-navy); }
+.theme-report .itable td:last-child { font-weight: 700; color: var(--report-navy); }
+.theme-report .kpi { align-items: center; text-align: center; border: 2px solid var(--report-navy); border-radius: 4px; padding: 8px; }
+.theme-report .kpi-value { color: var(--report-navy); font-size: 24px; }
+.report-banner { background: var(--report-navy, #0b2a8a); color: #fff; font-size: 18px; font-weight: 700; padding: 8px 14px; letter-spacing: 0.02em; }
+.theme-report .widget:has(.report-banner) .widget-body, .report-page .widget:has(.report-banner) .widget-body { padding: 0; }
+.theme-report .widget:has(.report-banner) > header { display: none; }
+.dash-grid .widget:has(.report-banner) { grid-row: span 1; min-height: 0; }
+.dash-grid .chart-wrap svg { max-height: 300px; }
+.widget.w8 .pscurve, .widget.w12 .pscurve { flex-direction: row; gap: 18px; }
+.widget.w8 .pscurve > *, .widget.w12 .pscurve > * { flex: 1; min-width: 0; }
+@media (max-width: 900px) { .widget .pscurve { flex-direction: column !important; } }
+
+/* ---------- Report page (PDF) and printing ---------- */
+.report-page { padding: 14px 18px; background: #fff; min-height: 100%; }
+.report-head { display: flex; gap: 14px; align-items: center; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 2px solid var(--report-navy, #1f6feb); }
+.report-head img { height: 34px; width: auto; }
+.report-head b { font-size: 16px; }
+.report-foot { margin-top: 12px; padding-top: 6px; border-top: 1px solid var(--line); font-size: 11px; color: var(--muted); text-align: right; }
+.report-page .widget { break-inside: avoid; }
+.report-page .widget-body { overflow: visible; }
+.print-only { display: none; }
+@page { size: A4 landscape; margin: 10mm; }
+@media print {
+  html, body, #root { height: auto; background: #fff; }
+  body * { visibility: hidden; }
+  .print-root, .print-root * { visibility: visible; }
+  .print-root { position: absolute; left: 0; top: 0; width: 100%; overflow: visible; padding: 0; }
+  .print-only { display: flex; }
+  .report-foot.print-only { display: block; }
+  .widget-tools, .grip, .add-widget, .widget-settings { display: none !important; }
+  .widget { break-inside: avoid; border-color: #ccd2da; }
+  .widget-body { overflow: visible; }
+  .report-page { padding: 0; }
+  .report-page *, .report-page { visibility: visible; }
+  /* Dashboards open over the workspace; let them flow onto as many pages as needed. */
+  .app > :not(.overlay-view) { display: none !important; }
+  .app, .overlay-view, .dash-root, .dash-main, .dash-body, .dash-canvas { position: static !important; display: block !important; height: auto !important; overflow: visible !important; }
+  .dash-list, .dash-bar, .email-panel { display: none !important; }
+  .print-root { position: static; }
+  .dash-grid { grid-auto-rows: minmax(40px, auto); }
+}

@@ -1,0 +1,35 @@
+# Stratum Server with PostgreSQL.
+#   1. Copy .env.example to .env and set STRATUM_SECRET and POSTGRES_PASSWORD.
+#   2. docker compose up -d
+#   3. Open http://<server>:8080 and create the first admin account.
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: stratum
+      POSTGRES_USER: stratum
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - stratum-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stratum"]
+      interval: 10s
+      retries: 10
+
+  stratum:
+    build: .
+    image: stratum-server:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://stratum:${POSTGRES_PASSWORD}@db:5432/stratum
+      STRATUM_SECRET: ${STRATUM_SECRET:?set STRATUM_SECRET in .env}
+      PUBLIC_URL: http://127.0.0.1:8080
+    ports:
+      - "${STRATUM_PORT:-8080}:8080"
+
+volumes:
+  stratum-db:

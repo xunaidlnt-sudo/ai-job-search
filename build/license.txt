@@ -1,6 +1,7 @@
 Stratum 4D - End User Licence
 
-Copyright (c) 2026 Stratum. All rights reserved.
+Copyright (c) 2026 Junaid Quamar. All rights reserved.
+Conceived, specified and directed by Junaid Quamar, Senior Planning Engineer.
 
 This is pre-release software provided for evaluation. You may install and use
 it on your own computers. You may not redistribute, sell, or sublicense it.

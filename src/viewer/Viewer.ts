@@ -85,6 +85,16 @@ export class Viewer {
     loop();
   }
 
+  /** Move the canvas into another container (interface layouts place the 3D view differently). */
+  attach(container: HTMLElement) {
+    if (container === this.container) return;
+    this.resizeObserver.disconnect();
+    this.container = container;
+    container.appendChild(this.renderer.domElement);
+    this.resizeObserver.observe(container);
+    this.resize();
+  }
+
   dispose() {
     this.disposed = true;
     this.resizeObserver.disconnect();

@@ -3,6 +3,7 @@ import { standardCalendar } from "../core/calendar";
 import type { Activity, ActivityStatus, ActivityType, ConstraintType, RelationshipType } from "../core/types";
 import { fmtNum } from "./charts";
 import { fmtDate, fromInputDate, toInputDate, useStore } from "./store";
+import { useTerms } from "./terms";
 
 const TYPES: [ActivityType, string][] = [
   ["task", "Task"],
@@ -95,6 +96,7 @@ export function ActivityEditor() {
 
 function Fields({ act, hpd }: { act: Activity; hpd: number }) {
   const st = useStore();
+  const terms = useTerms();
   const schedule = st.schedule!;
   const up = (patch: Partial<Activity>) => st.updateActivity(act.id, patch);
   const days = (h: number | null | undefined) => (h === null || h === undefined ? "" : String(Math.round((h / hpd) * 100) / 100));
@@ -126,7 +128,7 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
     <div className="stack editor-body">
       <section className="grid2">
         <label>
-          Activity ID
+          {terms.activityId}
           <input value={act.code} onChange={(e) => up({ code: e.target.value })} />
         </label>
         <label>
@@ -277,7 +279,7 @@ function Fields({ act, hpd }: { act: Activity; hpd: number }) {
         <h4>Predecessors ({preds.length})</h4>
         <RelTable rels={preds} other={(r) => byId.get(r.predecessorId)} hpd={hpd} />
         <div className="row">
-          <input placeholder="Activity ID" value={newPred.code} onChange={(e) => setNewPred({ ...newPred, code: e.target.value })} list="activity-codes" style={{ width: 110 }} />
+          <input placeholder={terms.activityId} value={newPred.code} onChange={(e) => setNewPred({ ...newPred, code: e.target.value })} list="activity-codes" style={{ width: 110 }} />
           <select value={newPred.type} onChange={(e) => setNewPred({ ...newPred, type: e.target.value as RelationshipType })}>
             {REL_TYPES.map((t) => (
               <option key={t}>{t}</option>

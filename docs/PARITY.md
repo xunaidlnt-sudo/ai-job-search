@@ -50,13 +50,14 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 | Assign resource costs; track actual cost | [2] | **Done** | Rates × quantities; budget, actual, remaining |
 | Earned value graph; cost roll-up by WBS | [2] | **Done** | PV/EV/AC/forecast S-curves; SPI, CPI, EAC, VAC, TCPI; WBS table; cost or labour hours |
 | Quantity tracking plots | [6] | **Done** | Any numeric IFC quantity or count; installed by date; current vs baseline curve; by type or activity |
-| Earned value KPIs and reports from field data | [7] | **Planned (Phase 5)** | |
+| Earned value KPIs and reports from field data | [7] | **Partial** | Dashboards with KPI tiles, EVM S-curves and weighted progress tables; PDF/Excel; scheduled email. Field capture still planned |
+| Weighted physical progress (EPC style) | — | **Done** | Weights by cost, hours, duration, equal or manual %; grouped by WBS, activity code or user field; Cum. BL plan vs actual vs variance with a TOTAL row; progress S-curve with period bars |
 
 ## Collaboration and field
 
 | Feature | Source | Stratum | Notes |
 |---|---|---|---|
-| Cloud collaboration and review | [8] | **Planned (Phase 5)** | Shared projects and review links |
+| Cloud collaboration and review | [8] | **Partial** | Stratum Server: shared PostgreSQL project database, sign-in with admin/planner/viewer roles, versioned saves that refuse to overwrite someone else's changes. Review links planned |
 | Field progress capture | [7] | **Planned (Phase 5)** | Mobile web view to record progress against tasks |
 
 ## Platform
@@ -67,6 +68,10 @@ Status: **Done** (in Stratum now), **Partial** (some of it works), **Planned** (
 | Desktop app (Windows/macOS/Linux) | **Done**: Electron app; Windows NSIS installer, macOS DMG, Linux AppImage/deb; opens .xer/.ifc from Explorer/Finder. Unsigned until certificates are bought |
 | Project file | **Done**: `.stratum.json` (schedule, links, rules, profiles, groups, parts, paths). Links re-match the model by IFC GlobalId |
 | IFC model import | **Done**: IFC2x3 / IFC4 via web-ifc; properties, quantities and storeys are read for linking |
+| Project database | **Done**: local SQLite (desktop), IndexedDB (browser) or PostgreSQL on Stratum Server; Docker Compose for the server |
+| Primavera P6 connection | **Done**: P6 EPPM REST (read, and write-back of progress); P6 Professional database on SQL Server, Oracle or SQLite (read-only) |
+| Interface modes | **Done**: P6-style, MS Project-style and 4D-style layouts and wording over the same engine, chosen at first start and switchable in Settings |
+| Reports and dashboards | **Done**: widget builder, templates, slicers, PDF, Excel, SMTP email on daily/weekly/monthly schedules with run log |
 | Large models | **Partial**: one merged mesh per element and colour; only changed elements repaint during playback (50k-element state update under 0.5 s in tests). GPU instancing and level-of-detail planned |
 
 ## User feedback

@@ -3,3 +3,7 @@ dist
 *.log
 .DS_Store
 release
+server-dist
+.env
+electron/host.cjs
+electron/sql-wasm.wasm

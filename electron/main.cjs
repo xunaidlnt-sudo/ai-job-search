@@ -146,7 +146,7 @@ function buildMenu() {
               type: "info",
               title: "About Stratum 4D",
               message: `Stratum 4D ${app.getVersion()}`,
-              detail: "4D construction planning: P6 schedules linked to IFC models.\nPress ? inside the app for the getting-started guide.",
+              detail: "4D construction planning: P6 schedules linked to IFC models.\n\nDeveloped by Junaid Quamar, Senior Planning Engineer.\nhttps://www.linkedin.com/in/junaidquamar/\n\nPress ? inside the app for the getting-started guide.",
             }),
         },
       ],
@@ -155,10 +155,17 @@ function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   serveDist();
   handleDownloads();
   buildMenu();
+  // Local database, report scheduler and P6/email services (see host.ts).
+  try {
+    const { startHost } = require("./host.cjs");
+    await startHost({ appUrl: `${SCHEME}://stratum/index.html`, preload: path.join(__dirname, "preload.cjs"), log: (m) => console.log(m) });
+  } catch (err) {
+    dialog.showErrorBox("Stratum could not open its database", String(err && err.stack ? err.stack : err));
+  }
   createWindow();
   filesFromArgv(process.argv).forEach(deliver);
   app.on("activate", () => {

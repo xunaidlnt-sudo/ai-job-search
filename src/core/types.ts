@@ -153,7 +153,9 @@ export interface Schedule {
   assignments?: Assignment[];
   /** Original XER tables, kept so an exported XER round-trips everything Stratum does not edit. */
   sourceXer?: Record<string, Record<string, string>[]> | null;
-  sourceFormat?: "xer" | "mspdi" | "stratum";
+  sourceFormat?: "xer" | "mspdi" | "stratum" | "p6-eppm" | "p6-db";
+  /** Where the schedule was pulled from, for refresh and push-back. */
+  p6Source?: { connectionId: string; projectObjectId: string; kind: string; pulledAt: string } | null;
 }
 
 /** A model element (IFC product or demo element) as seen by the linking engine. */

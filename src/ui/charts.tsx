@@ -10,6 +10,8 @@ export const SERIES = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#
 export const OTHER = "#8a8f98";
 
 export interface LineSeries {
+  /** Shorter name for the label at the line end. */
+  short?: string;
   id: string;
   label: string;
   color: string;
@@ -51,18 +53,24 @@ export function LineChart({
   markers = [],
   unit = "",
   title,
+  yMax,
+  fmt = fmtNum,
 }: {
   series: LineSeries[];
   markers?: { t: number; label: string; color: string }[];
   unit?: string;
   title: string;
+  /** Fixed top of the y-axis (e.g. 1 for 0–100% charts). */
+  yMax?: number;
+  /** Value formatter for ticks, labels and tooltips. */
+  fmt?: (v: number, unit?: string) => string;
 }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoverT, setHoverT] = useState<number | null>(null);
   const all = series.flatMap((s) => s.points);
   const lo = Math.min(...all.map((p) => p.t));
   const hi = Math.max(...all.map((p) => p.t));
-  const vmax = niceMax(Math.max(0, ...all.map((p) => p.v ?? 0)));
+  const vmax = yMax ?? niceMax(Math.max(0, ...all.map((p) => p.v ?? 0)));
   const x = (t: number) => M.l + ((t - lo) / Math.max(1, hi - lo)) * (W - M.l - M.r);
   const y = (v: number) => H - M.b - (v / vmax) * (H - M.t - M.b);
   const ticksY = [0, 0.25, 0.5, 0.75, 1].map((f) => f * vmax);
@@ -111,7 +119,7 @@ export function LineChart({
             <g key={v}>
               <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} className="grid" />
               <text x={M.l - 6} y={y(v) + 4} textAnchor="end" className="tick">
-                {fmtNum(v)}
+                {fmt(v)}
               </text>
             </g>
           ))}
@@ -135,7 +143,7 @@ export function LineChart({
           })}
           {ends.map((e) => (
             <text key={e.s.id} x={W - M.r + 6} y={e.y + 4} className="end-label">
-              {e.s.label} {fmtNum(e.v)}
+              {e.s.short ?? e.s.label} {fmt(e.v)}
             </text>
           ))}
           {hoverT !== null && (
@@ -155,7 +163,7 @@ export function LineChart({
               const p = nearest(s, hoverT);
               return (
                 <div key={s.id}>
-                  <span className="swatch" style={{ background: s.color }} /> {s.label}: {p && p.v !== null ? fmtNum(p.v, unit) : "–"}
+                  <span className="swatch" style={{ background: s.color }} /> {s.label}: {p && p.v !== null ? fmt(p.v, unit) : "–"}
                 </div>
               );
             })}
@@ -273,3 +281,76 @@ export function StackedBars({
     </figure>
   );
 }
+
+/** Grouped bars per period (e.g. monthly planned vs actual progress). */
+export function PeriodBars({
+  periods,
+  series,
+  fmt = fmtNum,
+  title,
+}: {
+  periods: { t: number; values: Record<string, number | null> }[];
+  series: StackSeries[];
+  fmt?: (v: number) => string;
+  title: string;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  if (!periods.length) return null;
+  const Hh = 150;
+  const vmax = niceMax(Math.max(0, ...periods.flatMap((p) => series.map((s) => p.values[s.id] ?? 0))));
+  const band = (W - M.l - M.r) / periods.length;
+  const bw = Math.max(2, (band - 4) / series.length - 2);
+  const y = (v: number) => Hh - M.b - (v / vmax) * (Hh - M.t - M.b);
+  return (
+    <figure className="chart">
+      {title && <figcaption>{title}</figcaption>}
+      <div className="legend-row">
+        {series.map((s) => (
+          <span key={s.id} className="legend-item">
+            <span className="swatch" style={{ background: s.color }} /> {s.label}
+          </span>
+        ))}
+      </div>
+      <div className="chart-wrap">
+        <svg viewBox={`0 0 ${W} ${Hh}`} role="img" aria-label={title || "Period progress"} onPointerLeave={() => setHover(null)}>
+          {[0, 0.5, 1].map((f) => (
+            <g key={f}>
+              <line x1={M.l} x2={W - M.r} y1={y(f * vmax)} y2={y(f * vmax)} className="grid" />
+              <text x={M.l - 6} y={y(f * vmax) + 4} textAnchor="end" className="tick">
+                {fmt(f * vmax)}
+              </text>
+            </g>
+          ))}
+          {periods.map((p, i) => (
+            <g key={p.t} onPointerEnter={() => setHover(i)} opacity={hover === null || hover === i ? 1 : 0.55}>
+              <rect x={M.l + i * band} y={M.t} width={band} height={Hh - M.t - M.b} fill="transparent" />
+              {series.map((s, k) => {
+                const v = p.values[s.id];
+                if (v === null || v === undefined || v <= 0) return null;
+                return <rect key={s.id} x={M.l + i * band + 2 + k * (bw + 2)} y={y(v)} width={bw} height={Math.max(0, Hh - M.b - y(v))} fill={s.color} rx="1" />;
+              })}
+              {periods.length <= 24 && (
+                <text x={M.l + i * band + band / 2} y={Hh - 8} textAnchor="middle" className="tick">
+                  {monthLabel(p.t)}
+                </text>
+              )}
+            </g>
+          ))}
+        </svg>
+        {hover !== null && (
+          <div className="tooltip" style={{ left: `${((M.l + hover * band) / W) * 100}%` }}>
+            <b>{monthLabel(periods[hover].t)}</b>
+            {series.map((s) => (
+              <div key={s.id}>
+                <span className="swatch" style={{ background: s.color }} /> {s.label}: {periods[hover].values[s.id] == null ? "–" : fmt(periods[hover].values[s.id]!)}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </figure>
+  );
+}
+
+export const pct = (v: number) => `${(v * 100).toFixed(v * 100 >= 10 || v === 0 ? 0 : 1)}%`;
+export const pct2 = (v: number) => `${(v * 100).toFixed(2)}%`;

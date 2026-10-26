@@ -1,10 +1,84 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import type { InterfaceMode } from "../core/reporting";
 import { activityDates, scheduleRange } from "../core/simulation";
+import type { Activity, Relationship } from "../core/types";
 import { buildGanttRows, type GanttRow } from "../core/wbs";
+import { useConfig } from "../backend/config";
 import { DAY, fmtDate, useStore } from "./store";
+import { useTerms, type Terms } from "./terms";
 
 const ROW = 24;
-const COLS = 466; // width of the table columns left of the bars
+
+interface ColCtx {
+  a: Activity;
+  start: number | null;
+  finish: number | null;
+  hpd: number;
+  rowNo: Map<string, number>;
+  preds: Relationship[];
+  linkCount: number;
+}
+
+interface Col {
+  key: string;
+  label: string;
+  width: number;
+  title?: string;
+  render: (c: ColCtx) => ReactNode;
+  className?: (c: ColCtx) => string;
+}
+
+const days = (h: number | null | undefined, hpd: number) => (h === null || h === undefined ? "" : String(Math.round((h / hpd) * 10) / 10));
+
+function columnsFor(mode: InterfaceMode, t: Terms): Col[] {
+  const tf: Col = {
+    key: "tf",
+    label: mode === "msp" ? "Slack" : "TF",
+    width: 40,
+    title: `${t.totalFloat} (days)`,
+    render: (c) => days(c.a.totalFloatHours, c.hpd),
+    className: (c) => (c.a.totalFloatHours !== null && c.a.totalFloatHours < 0 ? "bad" : ""),
+  };
+  const start: Col = { key: "start", label: "Start", width: 64, render: (c) => fmtDate(c.start) };
+  const finish: Col = { key: "finish", label: "Finish", width: 64, render: (c) => fmtDate(c.finish) };
+  const pct: Col = { key: "pct", label: "%", width: 34, title: t.percentComplete, render: (c) => Math.round(c.a.percentComplete) };
+  if (mode === "p6") {
+    return [
+      { key: "code", label: t.activityId, width: 82, render: (c) => c.a.code },
+      { key: "name", label: t.activityName, width: 170, render: (c) => c.a.name },
+      { key: "od", label: "Orig Dur", width: 44, title: `${t.originalDuration} (days)`, render: (c) => days(c.a.originalDurationHours, c.hpd) },
+      start,
+      finish,
+      tf,
+      pct,
+    ];
+  }
+  if (mode === "msp") {
+    const rel = (r: Relationship, c: ColCtx) => {
+      const n = c.rowNo.get(r.predecessorId);
+      if (n === undefined) return "";
+      const lag = r.lagHours ? `${r.lagHours > 0 ? "+" : ""}${days(r.lagHours, c.hpd)} days` : "";
+      return r.type === "FS" && !lag ? String(n) : `${n}${r.type}${lag}`;
+    };
+    return [
+      { key: "id", label: t.activityId, width: 34, render: (c) => c.rowNo.get(c.a.id) ?? "" },
+      { key: "name", label: t.activityName, width: 180, render: (c) => c.a.name },
+      { key: "dur", label: "Duration", width: 62, render: (c) => (c.a.originalDurationHours === null ? "" : `${days(c.a.originalDurationHours, c.hpd)} days`) },
+      start,
+      finish,
+      { key: "pred", label: t.predecessors, width: 76, render: (c) => c.preds.map((r) => rel(r, c)).filter(Boolean).join(",") },
+    ];
+  }
+  return [
+    { key: "code", label: t.activityId, width: 72, render: (c) => c.a.code },
+    { key: "name", label: "Name", width: 160, render: (c) => c.a.name },
+    start,
+    finish,
+    pct,
+    tf,
+    { key: "links", label: "🔗", width: 28, title: "Linked elements", render: (c) => c.linkCount || "" },
+  ];
+}
 
 export function Gantt() {
   const schedule = useStore((s) => s.schedule);
@@ -17,12 +91,16 @@ export function Gantt() {
   const selectActivity = useStore((s) => s.selectActivity);
   const selectElements = useStore((s) => s.selectElements);
   const setTime = useStore((s) => s.setTime);
+  const mode = useConfig((s) => s.config.mode);
+  const t = useTerms();
   const [scrollTop, setScrollTop] = useState(0);
   const [height, setHeight] = useState(400);
   const [width, setWidth] = useState(600);
   const [zoom, setZoom] = useState(1);
   const [filter, setFilter] = useState("");
   const bodyRef = useRef<HTMLDivElement>(null);
+  const cols = useMemo(() => columnsFor(mode, t), [mode, t]);
+  const COLS = cols.reduce((s, c) => s + c.width, 0);
 
   useEffect(() => {
     const el = bodyRef.current;
@@ -35,13 +113,23 @@ export function Gantt() {
     return () => ro.disconnect();
   }, [schedule]);
 
+  const allRows = useMemo<GanttRow[]>(() => (schedule ? buildGanttRows(schedule, sim.dateSource, collapsed) : []), [schedule, sim.dateSource, collapsed]);
   const rows = useMemo<GanttRow[]>(() => {
-    if (!schedule) return [];
-    const all = buildGanttRows(schedule, sim.dateSource, collapsed);
     const f = filter.trim().toLowerCase();
-    if (!f) return all;
-    return all.filter((r) => r.kind === "activity" && `${r.activity.code} ${r.activity.name}`.toLowerCase().includes(f));
-  }, [schedule, sim.dateSource, collapsed, filter]);
+    if (!f) return allRows;
+    return allRows.filter((r) => r.kind === "activity" && `${r.activity.code} ${r.activity.name}`.toLowerCase().includes(f));
+  }, [allRows, filter]);
+  // MS Project numbers every row (summaries included); predecessors refer to those numbers.
+  const rowNo = useMemo(() => {
+    const m = new Map<string, number>();
+    allRows.forEach((r, i) => m.set(r.id, i + 1));
+    return m;
+  }, [allRows]);
+  const predsOf = useMemo(() => {
+    const m = new Map<string, Relationship[]>();
+    for (const r of schedule?.relationships ?? []) (m.get(r.successorId) ?? m.set(r.successorId, []).get(r.successorId)!).push(r);
+    return m;
+  }, [schedule]);
 
   const linkCount = useMemo(() => {
     const m = new Map<string, number>();
@@ -58,7 +146,7 @@ export function Gantt() {
   const totalDays = Math.ceil((range.finish - origin) / DAY) + 14;
   // Fit the whole schedule into the visible bar area at zoom 1.
   const PX_PER_DAY = Math.max(0.5, ((width - COLS - 16) / totalDays) * zoom);
-  const x = (t: number) => ((t - origin) / DAY) * PX_PER_DAY;
+  const x = (tt: number) => ((tt - origin) / DAY) * PX_PER_DAY;
   const first = Math.max(0, Math.floor(scrollTop / ROW) - 5);
   const last = Math.min(rows.length, Math.ceil((scrollTop + height) / ROW) + 5);
 
@@ -74,92 +162,98 @@ export function Gantt() {
     selectActivity(id);
     if (withElements) selectElements(new Set(links.filter((l) => l.activityId === id).map((l) => l.elementId)));
   };
+  const nameSpan = cols.slice(0, cols.findIndex((c) => c.key === "name") + 1).reduce((s, c) => s + c.width, 0);
+  const afterName = cols.slice(cols.findIndex((c) => c.key === "name") + 1);
 
   return (
-    <div className="gantt">
+    <div className={`gantt gantt-${mode}`}>
       <div className="gantt-toolbar">
-        <input placeholder="Filter activities…" value={filter} onChange={(e) => setFilter(e.target.value)} />
-        <span className="muted">{schedule.activities.length} activities</span>
-        <button title="Zoom out" onClick={() => setZoom((z) => Math.max(0.25, z / 1.5))}>−</button>
-        <button title="Fit" onClick={() => setZoom(1)}>Fit</button>
-        <button title="Zoom in" onClick={() => setZoom((z) => Math.min(40, z * 1.5))}>+</button>
+        <input placeholder={`Filter ${t.activities.toLowerCase()}…`} value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <span className="muted">
+          {schedule.activities.length} {t.activities.toLowerCase()}
+        </span>
+        <button title="Zoom out" onClick={() => setZoom((z) => Math.max(0.25, z / 1.5))}>
+          −
+        </button>
+        <button title="Fit" onClick={() => setZoom(1)}>
+          Fit
+        </button>
+        <button title="Zoom in" onClick={() => setZoom((z) => Math.min(40, z * 1.5))}>
+          +
+        </button>
       </div>
-      <div
-        className="gantt-body"
-        ref={bodyRef}
-        onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}
-      >
+      <div className="gantt-body" ref={bodyRef} onScroll={(e) => setScrollTop(e.currentTarget.scrollTop)}>
         <div className="gantt-grid" style={{ height: rows.length * ROW + ROW, width: COLS + totalDays * PX_PER_DAY }}>
           <div className="gantt-head" style={{ width: COLS + totalDays * PX_PER_DAY }}>
-            <div className="gantt-cols">
-              <span style={{ width: 72 }}>Activity ID</span>
-              <span style={{ width: 170 }}>Name</span>
-              <span style={{ width: 64 }}>Start</span>
-              <span style={{ width: 64 }}>Finish</span>
-              <span style={{ width: 32 }}>%</span>
-              <span style={{ width: 36 }} title="Total float (days)">TF</span>
-              <span style={{ width: 28 }} title="Linked elements">🔗</span>
-            </div>
-            <div className="gantt-scale">
-              {months.filter((_, i) => PX_PER_DAY * 30 >= 48 || i % Math.ceil(48 / (PX_PER_DAY * 30)) === 0).map((m) => (
-                <span key={m.t} style={{ left: x(m.t) }}>
-                  {m.label}
+            <div className="gantt-cols" style={{ width: COLS }}>
+              {cols.map((c) => (
+                <span key={c.key} style={{ width: c.width }} title={c.title}>
+                  {c.label}
                 </span>
               ))}
+            </div>
+            <div className="gantt-scale" style={{ left: COLS }}>
+              {months
+                .filter((_, i) => PX_PER_DAY * 30 >= 48 || i % Math.ceil(48 / (PX_PER_DAY * 30)) === 0)
+                .map((m) => (
+                  <span key={m.t} style={{ left: x(m.t) }}>
+                    {m.label}
+                  </span>
+                ))}
             </div>
           </div>
           <div className="gantt-now" style={{ left: COLS + x(time), height: rows.length * ROW + ROW }} />
           {schedule.dataDate !== null && (
-            <div className="gantt-datadate" title={`Data date ${fmtDate(schedule.dataDate)}`} style={{ left: COLS + x(schedule.dataDate), height: rows.length * ROW + ROW }} />
+            <div className="gantt-datadate" title={`${t.dataDate} ${fmtDate(schedule.dataDate)}`} style={{ left: COLS + x(schedule.dataDate), height: rows.length * ROW + ROW }} />
           )}
           {rows.slice(first, last).map((r, i) => {
             const top = ROW + (first + i) * ROW;
             if (r.kind === "wbs") {
               return (
                 <div key={`w${r.id}`} className="gantt-row wbs" style={{ top }} onClick={() => toggleWbs(r.id)}>
-                  <div className="gantt-cols">
-                    <span style={{ width: 306, paddingLeft: 6 + r.depth * 12 }}>
+                  <div className="gantt-cols" style={{ width: COLS }}>
+                    <span style={{ width: nameSpan, paddingLeft: 6 + r.depth * 12 }}>
+                      {mode === "msp" ? `${rowNo.get(r.id) ?? ""} ` : ""}
                       {collapsed.has(r.id) ? "▸" : "▾"} {r.label}
                     </span>
-                    <span style={{ width: 64 }}>{fmtDate(r.start)}</span>
-                    <span style={{ width: 64 }}>{fmtDate(r.finish)}</span>
+                    {afterName.map((c) => (
+                      <span key={c.key} style={{ width: c.width }}>
+                        {c.key === "start" ? fmtDate(r.start) : c.key === "finish" ? fmtDate(r.finish) : ""}
+                      </span>
+                    ))}
                   </div>
-                  {r.start !== null && r.finish !== null && (
-                    <div className="bar summary" style={{ left: COLS + x(r.start), width: Math.max(2, x(r.finish) - x(r.start)) }} />
-                  )}
+                  {r.start !== null && r.finish !== null && <div className="bar summary" style={{ left: COLS + x(r.start), width: Math.max(2, x(r.finish) - x(r.start)) }} />}
                 </div>
               );
             }
             const a = r.activity;
             const d = activityDates(a, sim.dateSource);
             const isMs = a.type === "milestone" || a.type === "finish-milestone";
+            const ctx: ColCtx = { a, start: d.start, finish: d.finish, hpd, rowNo, preds: predsOf.get(a.id) ?? [], linkCount: linkCount.get(a.id) ?? 0 };
             const cls = ["gantt-row", selectedActivity === a.id ? "selected" : ""].join(" ");
             return (
               <div key={a.id} className={cls} style={{ top }} onClick={(e) => onActivity(a.id, e.altKey)} onDoubleClick={() => d.start !== null && setTime(d.start)}>
-                <div className="gantt-cols">
-                  <span style={{ width: 72, paddingLeft: 6 + r.depth * 12 }}>{a.code}</span>
-                  <span style={{ width: 170 }} title={a.name}>
-                    {a.name}
-                  </span>
-                  <span style={{ width: 64 }}>{fmtDate(d.start)}</span>
-                  <span style={{ width: 64 }}>{fmtDate(d.finish)}</span>
-                  <span style={{ width: 32 }}>{Math.round(a.percentComplete)}</span>
-                  <span style={{ width: 36 }} className={a.totalFloatHours !== null && a.totalFloatHours < 0 ? "bad" : ""}>
-                    {a.totalFloatHours === null ? "" : Math.round((a.totalFloatHours / hpd) * 10) / 10}
-                  </span>
-                  <span style={{ width: 28 }}>{linkCount.get(a.id) ?? ""}</span>
+                <div className="gantt-cols" style={{ width: COLS }}>
+                  {cols.map((c, k) => (
+                    <span
+                      key={c.key}
+                      style={{ width: c.width, paddingLeft: k === 0 && mode !== "msp" ? 6 + r.depth * 12 : c.key === "name" && mode === "msp" ? 4 + r.depth * 12 : undefined }}
+                      className={c.className?.(ctx)}
+                      title={c.key === "name" ? a.name : undefined}
+                    >
+                      {c.render(ctx)}
+                    </span>
+                  ))}
                 </div>
                 {a.baselineStart !== null && a.baselineFinish !== null && (
                   <div className="bar baseline" style={{ left: COLS + x(a.baselineStart), width: Math.max(2, x(a.baselineFinish) - x(a.baselineStart)) }} />
                 )}
-                {d.start !== null && d.finish !== null &&
+                {d.start !== null &&
+                  d.finish !== null &&
                   (isMs ? (
                     <div className={`milestone ${a.critical ? "critical" : ""}`} style={{ left: COLS + x(d.start) - 6 }} />
                   ) : (
-                    <div
-                      className={`bar ${a.critical ? "critical" : ""} ${a.status}`}
-                      style={{ left: COLS + x(d.start), width: Math.max(2, x(d.finish) - x(d.start)) }}
-                    >
+                    <div className={`bar ${a.critical ? "critical" : ""} ${a.status}`} style={{ left: COLS + x(d.start), width: Math.max(2, x(d.finish) - x(d.start)) }}>
                       <div className="bar-progress" style={{ width: `${a.percentComplete}%` }} />
                     </div>
                   ))}

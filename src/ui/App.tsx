@@ -1,5 +1,5 @@
 import type * as THREE from "three";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { scheduleCpm, ScheduleLoopError } from "../core/cpm";
 import { demoModel, demoPaths, demoProfileFor, demoXer, DEMO_LINK_RULE } from "../core/demo";
 import { applyRules } from "../core/linking";
@@ -13,6 +13,15 @@ import { diffSchedules, remapLinks } from "../core/update";
 import { decodeXer, listXerProjects, parseXerTables, xerToSchedule } from "../core/xer";
 import { exportCsv, exportXer } from "../core/xerExport";
 import { Viewer } from "../viewer/Viewer";
+import { reportRoute, useConfig } from "../backend/config";
+import { ConflictError } from "../backend/types";
+import { uid, type P6Connection } from "../core/reporting";
+import { DashboardsView } from "./Dashboards";
+import { ProjectsDialog } from "./ProjectsDialog";
+import { ReportView } from "./ReportView";
+import { SettingsDialog } from "./SettingsDialog";
+import { SetupWizard } from "./SetupWizard";
+import { useTerms } from "./terms";
 import { ActivityEditor } from "./ActivityEditor";
 import { clearAutosave, loadAutosave, startAutosave } from "./autosave";
 import { CostPanel, QuantityPanel, ResourcePanel } from "./Analysis";
@@ -42,9 +51,25 @@ function demoProfiles(): AppearanceProfile[] {
   ];
 }
 
+/** Report pages (#report=…) render alone, for PDF printing; everything else is the workspace. */
 export function App() {
-  const viewerHost = useRef<HTMLDivElement>(null);
+  const route = useMemo(() => reportRoute(), []);
+  if (route) return <ReportView dashboardId={route.dashboardId} projectId={route.projectId} backend={route.backend} />;
+  return <Workspace />;
+}
+
+type DetailTab = "activity" | "cost" | "resources" | "quantities" | "tools";
+
+function Workspace() {
   const viewerRef = useRef<Viewer | null>(null);
+  const { config, backend } = useConfig();
+  const mode = config.mode;
+  const t = useTerms();
+  const [settingsTab, setSettingsTab] = useState<null | "interface" | "data" | "p6" | "email" | "users">(null);
+  const [projectsTab, setProjectsTab] = useState<null | "database" | "p6">(null);
+  const [detailTab, setDetailTab] = useState<DetailTab>("activity");
+  const [ribbon, setRibbon] = useState<"file" | "task" | "resource" | "report" | "project" | "view">("task");
+  const [showTools, setShowTools] = useState(false);
   /** Model objects as loaded (before splitting into segments). */
   const objectsRef = useRef<Map<string, THREE.Object3D>>(new Map());
   const [recording, setRecording] = useState<MediaRecorder | null>(null);
@@ -62,14 +87,15 @@ export function App() {
     return () => stop?.();
   }, []);
   const store = useStore();
-  const { schedule, elements, links, profiles, time, sim, selectedElements, status, busy, segments, paths, pathDraft, leftTab, scheduleDirty } = store;
+  const { schedule, elements, links, profiles, time, sim, selectedElements, status, busy, segments, paths, pathDraft, leftTab, scheduleDirty, currentProjectId, currentVersion } = store;
 
-  useEffect(() => {
-    if (!viewerHost.current) return;
-    const v = new Viewer(viewerHost.current);
-    viewerRef.current = v;
-    return () => v.dispose();
+  // One viewer for the session; layouts put its canvas in different places.
+  const hostRef = useCallback((el: HTMLDivElement | null) => {
+    if (!el) return;
+    if (!viewerRef.current) viewerRef.current = new Viewer(el);
+    else viewerRef.current.attach(el);
   }, []);
+  useEffect(() => () => viewerRef.current?.dispose(), []);
 
   // Rebuild viewer objects when elements are split or unsplit.
   const segKey = useMemo(() => segments.map((s) => s.id).join(","), [segments]);
@@ -135,6 +161,11 @@ export function App() {
         e.preventDefault();
         return runSchedule();
       }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (s.schedule) void saveRef.current(false).catch(() => {});
+        return;
+      }
       const tag = (e.target as HTMLElement).tagName;
       if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
       if (e.key === "?") return setHelpOpen((h) => !h);
@@ -160,6 +191,8 @@ export function App() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
+
+  const saveRef = useRef<(asNew: boolean) => Promise<void>>(async () => {});
 
   // Desktop app: files double-clicked in Explorer/Finder arrive here.
   const openers = useRef({ importScheduleBytes: async (_n: string, _b: Uint8Array) => {}, importIfcBytes: async (_n: string, _b: Uint8Array) => {} });
@@ -222,6 +255,15 @@ export function App() {
         }
         s = xerToSchedule(tables, { projectId });
       }
+      adoptSchedule(s);
+    } catch (err) {
+      store.setStatus(`Schedule import failed: ${(err as Error).message}`);
+    }
+  };
+
+  /** Bring an imported schedule in: as an update of the open project when IDs overlap, else as a new project. */
+  const adoptSchedule = (s: Schedule) => {
+    {
       const prev = useStore.getState().schedule;
       const prevLinks = useStore.getState().links;
       // Treat it as an update of the open project when Activity IDs overlap.
@@ -252,13 +294,78 @@ export function App() {
         store.setPaths([]);
         store.setLastUpdate(null);
         store.setScheduleReport(null);
+        store.setCurrentProject(null, null);
+        const src = s.sourceFormat === "mspdi" ? "MS Project" : s.sourceFormat === "p6-eppm" ? "P6 EPPM" : s.sourceFormat === "p6-db" ? "P6 database" : "P6";
         store.setStatus(
-          `Imported ${s.projectCode} (${s.sourceFormat === "mspdi" ? "MS Project" : "P6"}): ${s.activities.length} activities, ` +
+          `Imported ${s.projectCode} (${src}): ${s.activities.length} activities, ` +
             `${s.relationships.length} relationships, ${s.resources?.length ?? 0} resources. Data date ${fmtDate(s.dataDate)}.`,
         );
       }
-    } catch (err) {
-      store.setStatus(`Schedule import failed: ${(err as Error).message}`);
+    }
+  };
+
+  // ---- database
+  const currentPayload = (): StratumProject => {
+    const st = useStore.getState();
+    return {
+      format: "stratum-project",
+      version: 2,
+      savedAt: new Date().toISOString(),
+      modelFileName: st.modelFileName,
+      schedule: st.schedule,
+      links: st.links,
+      rules: st.rules,
+      profiles: st.profiles,
+      segments: st.segments,
+      groups: st.groups,
+      paths: st.paths,
+    };
+  };
+
+  const saveToDb = async (asNew = false) => {
+    const st = useStore.getState();
+    if (!st.schedule) return;
+    const id = asNew || !st.currentProjectId ? uid("prj") : st.currentProjectId;
+    try {
+      const v = await useConfig.getState().backend.saveProject(id, currentPayload(), asNew || !st.currentProjectId ? undefined : st.currentVersion ?? undefined);
+      st.setCurrentProject(id, v);
+      st.setStatus(`Saved ${st.schedule.projectCode} to ${useConfig.getState().backend.label} (version ${v}).`);
+    } catch (e) {
+      if (e instanceof ConflictError) {
+        st.setStatus(`Not saved: ${e.message}`);
+        throw new Error(`${e.message} Use "Save as new" to keep your version, or reopen the project.`);
+      }
+      st.setStatus(`Save failed: ${(e as Error).message}`);
+      throw e;
+    }
+  };
+
+  const openFromDb = async (id: string) => {
+    const r = await useConfig.getState().backend.getProject(id);
+    if (!r) throw new Error("Project not found");
+    applyProject(r.project);
+    if (r.project.modelFileName === "Demo model") loadDemoModelOnly();
+    store.setCurrentProject(id, r.version);
+    store.setStatus(
+      `Opened ${r.project.schedule?.projectCode ?? "project"} (version ${r.version}).` +
+        (r.project.modelFileName && r.project.modelFileName !== "Demo model" ? ` Open ${r.project.modelFileName} with Import IFC to see the 4D links.` : ""),
+    );
+  };
+
+  const importFromP6 = (s: Schedule, c: P6Connection) => {
+    adoptSchedule(s);
+    store.setStatus(`${useStore.getState().status} Pulled from ${c.name}.`);
+  };
+
+  const pushToP6 = async () => {
+    const s = useStore.getState().schedule;
+    if (!s?.p6Source) return;
+    if (!window.confirm(`Send progress (actual dates, % complete, remaining duration) for ${s.projectCode} back to P6?`)) return;
+    try {
+      const r = await useConfig.getState().backend.p6Push(s.p6Source.connectionId, s);
+      store.setStatus(`Sent progress for ${r.updated} activities to P6.${r.skipped.length ? ` Not sent (new in Stratum, use XER): ${r.skipped.slice(0, 8).join(", ")}${r.skipped.length > 8 ? "…" : ""}.` : ""} Reschedule in P6 (F9).`);
+    } catch (e) {
+      store.setStatus(`P6 update failed: ${(e as Error).message}`);
     }
   };
 
@@ -293,6 +400,7 @@ export function App() {
   };
 
   openers.current = { importScheduleBytes, importIfcBytes };
+  saveRef.current = saveToDb;
 
   const loadDemoModelOnly = () => {
     const boxes = demoModel();
@@ -327,6 +435,7 @@ export function App() {
     store.setPaths(demoPaths(boxes));
     store.setLastUpdate(null);
     store.setScheduleReport(null);
+    store.setCurrentProject(null, null);
     store.setStatus(
       `Demo loaded: ${els.length} elements linked to ${new Set(found.map((l) => l.activityId)).size} activities, with costs, resources and a crane path. Press Play, or F9 to reschedule.`,
     );
@@ -433,41 +542,260 @@ export function App() {
     store.setStatus("Recording 4D video… press Stop to finish early.");
   };
 
-  return (
-    <div className="app">
-      <header className="toolbar">
-        <div className="brand">
-          <img src="./stratum-logo.png" alt="Stratum 4D" />
+  const viewport = (
+    <div className="viewport-wrap">
+      <div
+        className={`viewport ${pathDraft ? "drawing" : ""}`}
+        ref={hostRef}
+        onPointerDown={(e) => (down.current = { x: e.clientX, y: e.clientY })}
+        onPointerUp={(e) => {
+          const d = down.current;
+          if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) onViewportClick(e);
+          down.current = null;
+        }}
+      />
+      {elements.length === 0 && (
+        <div className="viewport-hint">
+          <p>No model loaded.</p>
+          <button className="primary" onClick={loadDemo}>
+            Load demo project
+          </button>
         </div>
-        <button onClick={importSchedule} title="Primavera P6 .xer or Microsoft Project .xml">
-          Import schedule
-        </button>
-        <button onClick={importIfc}>Import IFC</button>
-        <span className="sep" />
-        <button className={scheduleDirty ? "primary" : ""} onClick={runSchedule} disabled={!schedule} title="Run the CPM scheduler (F9)">
-          Schedule (F9)
-        </button>
-        <details className="menu">
-          <summary>Export</summary>
-          <div className="menu-body">
-            <button onClick={() => exportSchedule("xer")} disabled={!schedule}>P6 XER</button>
-            <button onClick={() => exportSchedule("csv")} disabled={!schedule}>CSV (Excel)</button>
-            <button onClick={snapshot}>Snapshot PNG</button>
-          </div>
-        </details>
-        <span className="sep" />
-        <button onClick={openProject}>Open project</button>
-        <button onClick={saveProject} disabled={!schedule}>Save project</button>
-        <span className="sep" />
-        <button onClick={() => viewerRef.current?.fit(selectedElements.size ? selectedElements : undefined)}>Zoom to fit</button>
-        <button onClick={toggleRecording} disabled={!schedule} className={recording ? "danger" : ""}>
-          {recording ? "■ Stop recording" : "● Record video"}
-        </button>
-        <span className="spacer" />
-        {savedAt && <span className="muted autosaved">Autosaved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+      )}
+    </div>
+  );
+
+  const canPush = !!schedule?.p6Source && schedule.p6Source.kind === "eppm";
+  const dbLabel = backend.label;
+
+  // Buttons shared by every layout, so all three modes keep the same features.
+  const btn = {
+    importSchedule: (
+      <button onClick={importSchedule} title="Primavera P6 .xer or Microsoft Project .xml">
+        Import schedule
+      </button>
+    ),
+    importIfc: <button onClick={importIfc}>Import IFC</button>,
+    run: (
+      <button className={scheduleDirty ? "primary" : ""} onClick={runSchedule} disabled={!schedule} title={`${t.schedule} using CPM (F9)`}>
+        {t.schedule} (F9)
+      </button>
+    ),
+    exportMenu: (
+      <details className="menu">
+        <summary>Export</summary>
+        <div className="menu-body">
+          <button onClick={() => exportSchedule("xer")} disabled={!schedule}>P6 XER</button>
+          <button onClick={() => exportSchedule("csv")} disabled={!schedule}>CSV (Excel)</button>
+          <button onClick={snapshot}>Snapshot PNG</button>
+        </div>
+      </details>
+    ),
+    projects: (
+      <button onClick={() => setProjectsTab("database")} title={`Open or save ${t.projects.toLowerCase()} in ${dbLabel}`}>
+        {t.projects}
+      </button>
+    ),
+    save: (
+      <button onClick={() => void saveToDb(false).catch((e) => window.alert(e.message))} disabled={!schedule} title="Save to the database (Ctrl+S)">
+        Save
+      </button>
+    ),
+    p6: <button onClick={() => setProjectsTab("p6")}>Import from P6</button>,
+    push: canPush ? (
+      <button onClick={pushToP6} title="Send progress back to P6 EPPM">
+        Update P6
+      </button>
+    ) : null,
+    dashboards: <button onClick={() => store.setView("dashboards")}>Dashboards</button>,
+    fit: <button onClick={() => viewerRef.current?.fit(selectedElements.size ? selectedElements : undefined)}>Zoom to fit</button>,
+    record: (
+      <button onClick={toggleRecording} disabled={!schedule} className={recording ? "danger" : ""}>
+        {recording ? "■ Stop recording" : "● Record video"}
+      </button>
+    ),
+    demo: <button onClick={loadDemo}>Load demo</button>,
+    settings: (
+      <button onClick={() => setSettingsTab("interface")} title="Interface, database, P6, email">
+        ⚙ Settings
+      </button>
+    ),
+    help: (
+      <button title="Getting started and shortcuts (?)" onClick={() => setHelpOpen(true)}>
+        ?
+      </button>
+    ),
+  };
+
+  const fileMenu = (
+    <details className="menu">
+      <summary>File</summary>
+      <div className="menu-body" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute("open")}>
+        <button onClick={() => setProjectsTab("database")}>Open from database…</button>
+        <button onClick={() => void saveToDb(true).catch((e) => window.alert(e.message))} disabled={!schedule}>Save as new</button>
+        <button onClick={importSchedule}>Import schedule (XER / XML)…</button>
+        <button onClick={importIfc}>Import IFC model…</button>
+        <button onClick={() => setProjectsTab("p6")}>Import from P6…</button>
+        {canPush && <button onClick={pushToP6}>Update P6 with progress</button>}
+        <button onClick={openProject}>Open project file…</button>
+        <button onClick={saveProject} disabled={!schedule}>Save project file</button>
         <button onClick={loadDemo}>Load demo</button>
-        <button title="Getting started and shortcuts (?)" onClick={() => setHelpOpen(true)}>?</button>
-      </header>
+      </div>
+    </details>
+  );
+
+  const brand = (
+    <div className="brand">
+      <img src="./stratum-logo.png" alt="Stratum 4D" />
+    </div>
+  );
+
+  const toolbarRight = (
+    <>
+      <span className="spacer" />
+      <span className="muted conn" title="Where projects are stored">
+        {dbLabel}
+        {currentProjectId ? ` · v${currentVersion}` : ""}
+      </span>
+      {savedAt && <span className="muted autosaved">Autosaved {savedAt.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+      {btn.settings}
+      {btn.help}
+    </>
+  );
+
+  const RIBBON: Record<typeof ribbon, { label: string; body: JSX.Element }> = {
+    file: {
+      label: "File",
+      body: (
+        <>
+          {btn.projects}
+          {btn.save}
+          <span className="sep" />
+          {btn.importSchedule}
+          {btn.importIfc}
+          {btn.p6}
+          {btn.push}
+          <span className="sep" />
+          {btn.exportMenu}
+          <button onClick={openProject}>Open file…</button>
+          <button onClick={saveProject} disabled={!schedule}>Save file</button>
+          {btn.demo}
+        </>
+      ),
+    },
+    task: {
+      label: "Task",
+      body: (
+        <>
+          {btn.run}
+          <span className="sep" />
+          <button onClick={() => setDetailTab("activity")} className={detailTab === "activity" ? "active" : ""}>Task information</button>
+          <button onClick={() => { setShowTools(true); setDetailTab("tools"); }}>Link to model</button>
+        </>
+      ),
+    },
+    resource: {
+      label: "Resource",
+      body: (
+        <>
+          <button onClick={() => setDetailTab("resources")} className={detailTab === "resources" ? "active" : ""}>Resource usage</button>
+          <button onClick={() => setDetailTab("cost")} className={detailTab === "cost" ? "active" : ""}>Cost & earned value</button>
+          <button onClick={() => setDetailTab("quantities")} className={detailTab === "quantities" ? "active" : ""}>Quantities</button>
+        </>
+      ),
+    },
+    report: {
+      label: "Report",
+      body: (
+        <>
+          {btn.dashboards}
+          {btn.exportMenu}
+        </>
+      ),
+    },
+    project: {
+      label: "Project",
+      body: (
+        <>
+          {btn.run}
+          {btn.p6}
+          {btn.push}
+        </>
+      ),
+    },
+    view: {
+      label: "View",
+      body: (
+        <>
+          {btn.fit}
+          {btn.record}
+          <button className={showTools ? "active" : ""} onClick={() => setShowTools(!showTools)}>
+            4D tools pane
+          </button>
+        </>
+      ),
+    },
+  };
+
+  const DETAIL_TABS: [DetailTab, string][] = [
+    ["activity", mode === "msp" ? "Task Form" : t.activity === "Activity" ? "General" : t.activity],
+    ["cost", "Cost & EVM"],
+    ["resources", t.resources],
+    ["quantities", "Quantities"],
+    ["tools", "4D tools"],
+  ];
+  const detailBody = (
+    <div className="details-body">
+      {detailTab === "activity" && <ActivityEditor />}
+      {detailTab === "cost" && <CostPanel />}
+      {detailTab === "resources" && <ResourcePanel />}
+      {detailTab === "quantities" && <QuantityPanel />}
+      {detailTab === "tools" && <SidePanel />}
+    </div>
+  );
+  const detailTabs = (
+    <div className="tabs">
+      {DETAIL_TABS.map(([id, label]) => (
+        <button key={id} className={detailTab === id ? "active" : ""} onClick={() => setDetailTab(id)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  return (
+    <div className={`app mode-${mode}`}>
+      {mode === "msp" ? (
+        <header className="ribbon">
+          <div className="ribbon-tabs">
+            {brand}
+            {(Object.keys(RIBBON) as (typeof ribbon)[]).map((k) => (
+              <button key={k} className={ribbon === k ? "active" : ""} onClick={() => setRibbon(k)}>
+                {RIBBON[k].label}
+              </button>
+            ))}
+            {toolbarRight}
+          </div>
+          <div className="ribbon-body toolbar">{RIBBON[ribbon].body}</div>
+        </header>
+      ) : (
+        <header className="toolbar">
+          {brand}
+          {fileMenu}
+          {btn.projects}
+          {btn.save}
+          <span className="sep" />
+          {mode === "p6" ? btn.importSchedule : btn.importIfc}
+          {btn.push}
+          {btn.run}
+          {btn.exportMenu}
+          <span className="sep" />
+          {btn.dashboards}
+          {btn.fit}
+          {btn.record}
+          {toolbarRight}
+        </header>
+      )}
       {restore && (
         <div className="banner">
           Restore your last session? <b>{restore.schedule?.projectCode}</b>, {restore.links.length} links
@@ -513,49 +841,69 @@ export function App() {
           }}
         />
       )}
-      <main className="workspace">
-        <section className="left">
-          <div className="tabs left-tabs">
-            {LEFT_TABS.map((t) => (
-              <button key={t.id} className={leftTab === t.id ? "active" : ""} onClick={() => store.setLeftTab(t.id)}>
-                {t.label}
-              </button>
-            ))}
-          </div>
-          <div className="left-body">
-            {leftTab === "gantt" && <Gantt />}
-            {leftTab === "activity" && <ActivityEditor />}
-            {leftTab === "cost" && <CostPanel />}
-            {leftTab === "resources" && <ResourcePanel />}
-            {leftTab === "quantities" && <QuantityPanel />}
-          </div>
-        </section>
-        <section className="center">
-          <div
-            className={`viewport ${pathDraft ? "drawing" : ""}`}
-            ref={viewerHost}
-            onPointerDown={(e) => (down.current = { x: e.clientX, y: e.clientY })}
-            onPointerUp={(e) => {
-              const d = down.current;
-              if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) < 4) onViewportClick(e);
-              down.current = null;
-            }}
-          />
-          {elements.length === 0 && (
-            <div className="viewport-hint">
-              <p>No model loaded.</p>
-              <button className="primary" onClick={loadDemo}>
-                Load demo project
-              </button>
+      {mode === "4d" && (
+        <main className="workspace">
+          <section className="left">
+            <div className="tabs left-tabs">
+              {LEFT_TABS.map((x) => (
+                <button key={x.id} className={leftTab === x.id ? "active" : ""} onClick={() => store.setLeftTab(x.id)}>
+                  {x.id === "activity" ? t.activity : x.label}
+                </button>
+              ))}
             </div>
-          )}
-        </section>
-        <section className="right">
-          <SidePanel />
-        </section>
-      </main>
+            <div className="left-body">
+              {leftTab === "gantt" && <Gantt />}
+              {leftTab === "activity" && <ActivityEditor />}
+              {leftTab === "cost" && <CostPanel />}
+              {leftTab === "resources" && <ResourcePanel />}
+              {leftTab === "quantities" && <QuantityPanel />}
+            </div>
+          </section>
+          <section className="center">{viewport}</section>
+          <section className="right">
+            <SidePanel />
+          </section>
+        </main>
+      )}
+      {mode === "p6" && (
+        <main className="layout-p6">
+          <div className="p6-top">
+            <section className="p6-gantt">
+              <div className="pane-title">{t.activities}</div>
+              <Gantt />
+            </section>
+            <section className="p6-view">{viewport}</section>
+          </div>
+          <section className="p6-details">
+            {detailTabs}
+            {detailBody}
+          </section>
+        </main>
+      )}
+      {mode === "msp" && (
+        <main className="layout-msp">
+          <div className="msp-timeline">
+            <Timeline />
+          </div>
+          <div className="msp-top">
+            <section className="msp-gantt">
+              <Gantt />
+            </section>
+            <section className="msp-view">{viewport}</section>
+            {showTools && (
+              <section className="msp-tools">
+                <SidePanel />
+              </section>
+            )}
+          </div>
+          <section className="msp-form">
+            {detailTabs}
+            {detailBody}
+          </section>
+        </main>
+      )}
       <footer>
-        <Timeline />
+        {mode !== "msp" && <Timeline />}
         <div className={`status ${busy ? "busy" : ""}`}>
           {status}
           <span className="muted">
@@ -564,6 +912,35 @@ export function App() {
           </span>
         </div>
       </footer>
+      {store.view === "dashboards" && (
+        <div className="overlay-view">
+          <DashboardsView onClose={() => store.setView("workspace")} />
+        </div>
+      )}
+      {projectsTab && (
+        <ProjectsDialog
+          initialTab={projectsTab}
+          onClose={() => setProjectsTab(null)}
+          onOpen={async (id) => {
+            await openFromDb(id);
+            setProjectsTab(null);
+          }}
+          onSave={saveToDb}
+          onImportP6={(sch, c) => {
+            importFromP6(sch, c);
+            setProjectsTab(null);
+          }}
+        />
+      )}
+      {settingsTab && <SettingsDialog initialTab={settingsTab} onClose={() => setSettingsTab(null)} />}
+      {!config.configured && (
+        <SetupWizard
+          onDone={(open) => {
+            if (open === "p6") setSettingsTab("p6");
+            else if (open === "email") setSettingsTab("email");
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,0 +1,59 @@
+# Tests the engine, database layer, P6 connectors and Stratum Server against a
+# real PostgreSQL, then builds the server Docker image and checks it starts.
+
+name: Server and tests
+
+on:
+  push:
+    branches: [stratum-4d, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+          POSTGRES_DB: stratum_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      STRATUM_TEST_PG: postgres://postgres@127.0.0.1:5432/stratum_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - run: npm test
+      - run: npm run build && npm run build:server
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t stratum-server:ci .
+      - name: Start on SQLite and check the API
+        run: |
+          docker run -d --name stratum -p 8080:8080 -e STRATUM_SECRET=ci-secret-not-for-production stratum-server:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/status; then echo; break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/api/status | grep -q '"needsSetup":true'
+          curl -fsS -o /dev/null http://127.0.0.1:8080/
+      - name: Server log
+        if: always()
+        run: docker logs stratum || true
